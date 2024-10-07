@@ -155,6 +155,7 @@ def Vprime(
     V: ndarray,
     ds2: ndarray,
     γs2: ndarray,
+    I: int,
 ) -> ndarray:
     """Return the time derivatives of the small-scale systems.
 
@@ -179,6 +180,8 @@ def Vprime(
     γs2
         The coefficients γ_j
         shape (I,)
+    I
+        The number of large-scale systems
 
     Returns
     -------
@@ -201,6 +204,7 @@ def nudge(
     U_sim: ndarray,
     μ: float,
     state_true: Callable[[float], ndarray],
+    I: int,
     J_true: int,
 ) -> ndarray:
     """Return the nudging term μ * (U_sim - U_true).
@@ -218,6 +222,8 @@ def nudge(
     state_true
         The true state of the system, used to nudge simulated `state`.
         Should be callable with time t. See docstring of `ode` for shape.
+    I
+        The number of large-scale systems
     J_true
         The number of true small-scale systems.
 
