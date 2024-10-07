@@ -69,7 +69,7 @@ def ode(
         `state` except that J_true (the number of true small-scale systems) may
         differ from J (the number of simulated small-scale systems).
     J_true
-        The number of true small-scale systems.
+        The number of true small-scale systems
 
     Returns
     -------
@@ -102,11 +102,7 @@ def ode(
 
 
 def Uprime(
-    U: ndarray,
-    V: ndarray,
-    ds: ndarray,
-    γs: ndarray,
-    F: float,
+    U: ndarray, V: ndarray, ds: ndarray, γs: ndarray, F: float
 ) -> ndarray:
     """Return the time derivatives of the large-scale systems.
 
@@ -151,11 +147,7 @@ def Uprime(
 
 
 def Vprime(
-    U: ndarray,
-    V: ndarray,
-    ds2: ndarray,
-    γs2: ndarray,
-    I: int,
+    U: ndarray, V: ndarray, ds2: ndarray, γs2: ndarray, I: int
 ) -> ndarray:
     """Return the time derivatives of the small-scale systems.
 
@@ -225,7 +217,7 @@ def nudge(
     I
         The number of large-scale systems
     J_true
-        The number of true small-scale systems.
+        The number of true small-scale systems
 
     Returns
     -------
