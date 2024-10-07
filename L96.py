@@ -93,10 +93,10 @@ def ode(
     Up = Uprime(U, V, ds, γs, F)
 
     # The time derivatives of the small-scale systems
-    Vp = Vprime(U, V, ds2, γs2)
+    Vp = Vprime(U, V, ds2, γs2, I)
 
     if μ is not None:
-        Up -= nudge(t, U, μ, state_true, J_true)
+        Up -= nudge(t, U, μ, state_true, I, J_true)
 
     return together(Up, Vp)
 
