@@ -68,11 +68,11 @@ class System:
             Forcing term (assume constant)
         μ
             Nudging parameter greater than or equal to zero
-        
+
         Attributes
         ----------
         All of the parameters to `__init__`
-        
+
         Methods
         -------
         ode_true
@@ -90,7 +90,7 @@ class System:
 
         self.F = F
         self.μ = μ
-    
+
     def __repr__(self):
         return (
             f"I: {self.I} | J: {self.J} | J_sim: {self.J_sim}\n"
