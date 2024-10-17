@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.integrate import solve_ivp
 
 import L96
 
@@ -62,8 +63,6 @@ class RelaxPunch:
         if J_sim > J:
             raise NotImplementedError("J_sim > J is not (yet) supported")
 
-        self.Δt = Δt
-
         ds = np.full(I, γ2)
         γs = np.full((I, J), γ1)
         γs2 = np.full(I, γ1)
@@ -89,3 +88,56 @@ class RelaxPunch:
             F,
             μ,
         )
+
+        self.t0, self.Δt = 0, Δt
+
+        self.sols, self.sims = list(), list()
+
+    def _evolve(
+        self,
+        t0: float,
+        Δt: float,
+        U0: ndarray,
+        V0: ndarray,
+        U0_sim: ndarray,
+        V0_sim: ndarray,
+    ):
+        """Evolve the true and simulated system from t0 to t0 + Δt.
+
+        Parameters
+        ----------
+        t0
+            start time
+        Δt
+            length of time to simulate (i.e., from t0 to t0 + Δt)
+        U0
+            The state of the true large-scale system at t0
+            shape (I,)
+        V0
+            The states of the true small-scale systems at t0
+            shape (I, J)
+        U0_sim, V0_sim
+            The states of the simulated large- and small-scale systems at t0
+            shapes same as those for U0 and V0
+        """
+
+        state0 = L96.together(U0, V0)
+        state0_sim = L96.together(U0_sim, V0_sim)
+
+        # Evolve true and simulated systems
+        sol = solve_ivp(
+            self.system.ode_true,
+            (t0, t0 + Δt),
+            state0,
+            dense_output=True,
+        )
+
+        sim = solve_ivp(
+            self.system.ode_sim,
+            (t0, t0 + Δt),
+            state0_sim,
+            args=(sol.sol,),
+            dense_output=True,
+        )
+
+        return sol, sim
