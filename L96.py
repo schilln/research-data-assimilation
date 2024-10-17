@@ -65,9 +65,20 @@ class System:
             The coefficients γ_i to use in the simulation
             shape (I,)
         F
-            forcing term (assume constant)
+            Forcing term (assume constant)
         μ
             Nudging parameter greater than or equal to zero
+        
+        Attributes
+        ----------
+        All of the parameters to `__init__`
+        
+        Methods
+        -------
+        ode_true
+            Compute the time derivative of the true system.
+        ode_sim
+            Compute the time derivative of the simulated system.
         """
 
         self.I, self.J, self.J_sim = I, J, J_sim
@@ -79,6 +90,20 @@ class System:
 
         self.F = F
         self.μ = μ
+    
+    def __repr__(self):
+        return (
+            f"I: {self.I} | J: {self.J} | J_sim: {self.J_sim}\n"
+            f"F: {self.F} | μ: {self.μ}\n"
+            f"ds: {self.ds}\n"
+            f"ds2:\n{self.ds2}\n"
+            f"γs:\n{self.γs}\n"
+            f"γs2: {self.γs2}\n"
+            f"ds_sim: {self.ds_sim}\n"
+            f"ds2_sim:\n{self.ds2_sim}\n"
+            f"γs_sim:\n{self.γs_sim}\n"
+            f"γs2_sim: {self.γs2_sim}\n"
+        )
 
     def _ode(
         self,
