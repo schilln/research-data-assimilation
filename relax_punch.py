@@ -14,7 +14,6 @@ class RelaxPunch:
         I: int,
         J: int,
         J_sim: int,
-        Δt: float,
         γ1: float,
         γ2: float,
         ds2: ndarray,
@@ -44,9 +43,6 @@ class RelaxPunch:
             The number of true small-scale systems
         J_sim
             The number of simulated small-scale systems
-        Δt
-            The length of time to evolve the true and simulated systems before a
-            parameter update.
         γ1
             The true parameter γ1 in Josh Newey's paper (J_4.9)
         γ2
@@ -93,9 +89,128 @@ class RelaxPunch:
             μ,
         )
 
-        self.t0, self.Δt = 0, Δt
+        self.c1, self.c2 = c1, c2
+
+    def _update_params(self, c1, c2):
+        system = self.system
+
+        self.c1, self.c2 = c1, c2
+
+        system.ds_sim = np.full(system.I, c2)
+        system.γs_sim = np.full((system.I, system.J_sim), c1)
+        system.γs2_sim = np.full(system.I, c1)
+
+    def iterate(
+        self,
+        Δt: float,
+        num_iters: int,
+        learning_rate: float,
+        U0: ndarray,
+        V0: ndarray,
+        U0_sim: ndarray,
+        V0_sim: ndarray,
+    ):
+        """
+
+        Parameters
+        ----------
+        Δt
+            The length of time to evolve the true and simulated systems before a
+            parameter update
+        num_iters
+            The number of iterations of evolving the system and updating
+            parameters to perform
+        learning_rate
+            The learning rate to use when updating parameters
+        U0
+            The state of the true large-scale system at t0
+            shape (I,)
+        V0
+            The states of the true small-scale systems at t0
+            shape (I, J)
+        U0_sim, V0_sim
+            The states of the simulated large- and small-scale systems at t0
+            shapes same as those for U0 and V0
+
+        Saves
+        -----
+        sols
+            A list of `solve_ivp` solutions to the true solution
+            length: `num_iters`
+        sims
+            A list of `solve_ivp` solutions to the simulated solution
+            length: `num_iters`
+        sol
+            A callable piecing together true solutions from all time intervals
+        sim
+            A callable piecing together simulated solutions from all time
+            intervals
+        """
+
+        system = self.system
 
         self.sols, self.sims = list(), list()
+
+        self.c1s = np.full(num_iters + 1, np.inf)
+        self.c2s = np.full(num_iters + 1, np.inf)
+
+        self.c1s[0], self.c2s[0] = self.c1, self.c2
+
+        t0 = 0
+        for i in range(num_iters):
+            sol, sim = self._evolve(t0, Δt, U0, V0, U0_sim, V0_sim)
+
+            self.sols.append(sol)
+            self.sims.append(sim)
+
+            c1, c2 = self._gradient_descent(
+                t0 + Δt,
+                sol.sol,
+                sim.sol,
+                (self.c1, self.c2),
+                learning_rate,
+            )
+
+            self.c1s[i + 1] = c1
+            self.c2s[i + 1] = c2
+            self._update_params(c1, c2)
+
+            t0 += Δt
+            U0, V0 = L96.apart(sol.y.T[-1], system.I, system.J)
+            U0_sim, V0_sim = L96.apart(sim.y.T[-1], system.I, system.J_sim)
+
+        self._concatenate_sols(Δt, num_iters)
+
+    def _concatenate_sols(self, Δt, num_iters):
+        system = self.system
+
+        thresholds = [i * Δt for i in range(num_iters)]
+
+        # Essentially adapt `np.piecewise` to work when input functions have
+        # multidimensional output for one-dimensional input.
+        def _concat(x, sols, J):
+            xn = len(x)
+
+            conditions = np.array([threshold <= x for threshold in thresholds])
+            # For a given threshold, many x are greater than it, which would
+            # lead to many function evaluations below. This block replaces all
+            # but the last True with False, so that each x is only evaluated by
+            # one function.
+            last_idx = num_iters - 1 - np.argmax(conditions[::-1], axis=0)
+            conditions[:] = False
+            conditions[last_idx, np.arange(xn)] = True
+
+            functions = [sol.sol for sol in sols]
+            y = np.full((system.I + system.I * J, xn), np.inf)
+
+            for condition, function in zip(conditions, functions):
+                if np.any(condition):
+                    y[:, condition] = function(x[condition])
+
+            return y
+
+        self.sol = lambda x: _concat(x, self.sols, system.J)
+        self.sim = lambda x: _concat(x, self.sims, system.J_sim)
 
     def _evolve(
         self,
