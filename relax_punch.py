@@ -151,7 +151,7 @@ class RelaxPunch:
         t: float,
         sol: Callable[[float], ndarray],
         sim: Callable[[float], ndarray],
-        params: ndarray,
+        params: tuple[float, float],
         r: float,
     ) -> ndarray:
         """Compute new parameters for the simulated system using gradient
@@ -198,17 +198,14 @@ class RelaxPunch:
             The new parameters for the simulated system
         """
 
-        I, J, J_sim, μ = self.I, self.J, self.J_sim, self.μ
+        system = self.system
+        I, J, J_sim = system.I, system.J, system.J_sim
 
         U, _ = L96.apart(sol(t), I, J)
         U_sim, _ = L96.apart(sim(t), I, J_sim)
 
-        new_param0 = params[0] - r * (U_sim - U) @ self._compute_W1(
-            t, sim, μ, I, J_sim
-        )
-        new_param1 = params[1] - r * (U_sim - U) @ self._compute_W2(
-            t, sim, μ, I, J_sim
-        )
+        new_param0 = params[0] - r * (U_sim - U) @ self._compute_W1(t, sim)
+        new_param1 = params[1] - r * (U_sim - U) @ self._compute_W2(t, sim)
 
         return np.array([new_param0, new_param1])
 
@@ -241,9 +238,11 @@ class RelaxPunch:
             [w_{0, 1}, ..., w_{I-1, 1}]
         """
 
-        U, V = L96.apart(simsol(t), self.I, self.J_sim)
+        system = self.system
 
-        return (V.sum(axis=1) * U).sum() / self.μ
+        U, V = L96.apart(simsol(t), system.I, system.J_sim)
+
+        return V.sum(axis=1) * U / system.μ
 
     def _compute_W2(
         self,
@@ -274,6 +273,8 @@ class RelaxPunch:
             [w_{0, 2}, ..., w_{I-1, 2}]
         """
 
-        U, _ = L96.apart(simsol(t), self.I, self.J_sim)
+        system = self.system
 
-        return -U / self.μ
+        U, _ = L96.apart(simsol(t), system.I, system.J_sim)
+
+        return -U / system.μ
