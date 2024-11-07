@@ -281,10 +281,84 @@ class RelaxPunch:
         U = sol(t)[: system.I]
         U_sim = sim(t)[: system.I]
 
-        new_c1 = c1 - r * (U_sim - U) @ self._compute_W1(t, sim)
-        new_c2 = c2 - r * (U_sim - U) @ self._compute_W2(t, sim)
+        diff = U_sim - U
+        gradient = np.array(
+            [diff @ self._compute_W1(t, sim), diff @ self._compute_W2(t, sim)]
+        )
 
-        return new_c1, new_c2
+        return np.array([c1, c2]) - r * gradient
+
+    def _levenberg_marquardt(
+        self,
+        t: float,
+        sol: Callable[[float], ndarray],
+        sim: Callable[[float], ndarray],
+        c1: float,
+        c2: float,
+        r: float,
+    ) -> ndarray:
+        """Compute new parameters for the simulated system using
+        Levenberg–Marquardt.
+
+        Assume only large-scale states are observed.
+
+        Parameters
+        ----------
+        t
+            The final time of the interval at which point gradient descent is to
+            be performed
+        sol
+            The true solution
+
+            `sol(t)` should have shape (I + I*J,) and be of the form
+            [
+                u_0, ..., u_{I-1},
+                v_{0, 0}, ..., v_{0, J-1},
+                v_{1, 0}, ..., v_{1, J-1},
+                ...,
+                v_{I-1, 0}, ..., v_{I-1, J-1}
+            ]
+        simsol
+            The simulated solution
+
+            `simsol(t)` should have shape (I + I*J,) and be of the form
+            [
+                u_0, ..., u_{I-1},
+                v_{0, 0}, ..., v_{0, J_sim - 1},
+                v_{1, 0}, ..., v_{1, J_sim - 1},
+                ...,
+                v_{I-1, 0}, ..., v_{I-1, J_sim - 1}
+            ]
+        c1
+            The parameter c1 to update
+        c2
+            The parameter c2 to update
+        r
+            The learning rate
+
+        Returns
+        -------
+        new_params
+            The new parameters for the simulated system
+        """
+
+        system = self.system
+
+        U = sol(t)[: system.I]
+        U_sim = sim(t)[: system.I]
+
+        diff = U_sim - U
+        gradient = np.array(
+            [diff @ self._compute_W1(t, sim), diff @ self._compute_W2(t, sim)]
+        )
+
+        # TODO: Verify the following is correct (just used Josh's code).
+        mat = np.outer(gradient, gradient)
+
+        λ = 1e-2
+        return np.array([c1, c2]) - np.linalg.solve(
+            mat + λ * np.eye(2), gradient
+        )
 
     def _dummy_grad_desc(
         self,
