@@ -2,14 +2,9 @@
 Code to run and nudge the L96 model using jax and jit.
 """
 
-import jax
-from jax import numpy as jnp, lax
-# jax.config.update("jax_enable_x64", True)
+import numpy as np
 
-# import jax.debug
-# from jax.debug import print as jprint
-
-jndarray = jnp.ndarray
+ndarray = np.ndarray
 
 
 class System:
@@ -22,7 +17,7 @@ class System:
         γ2: float,
         c1: float,
         c2: float,
-        ds: jndarray,
+        ds: ndarray,
         F: float,
         μ: float,
     ):
@@ -54,8 +49,8 @@ class System:
             u1 = u + (dt / 6) * (k1u + 2 * k2u + 2 * k3u + k4u)
             v1 = v + (dt / 6) * (k1v + 2 * k2v + 2 * k3v + k4v)
 
-            U = U.at[n].set(u1)
-            V = V.at[n].set(v1)
+            U[n] = u1
+            V[n] = v1
 
             return (U, V), dt
 
@@ -65,44 +60,45 @@ class System:
 def ode(
     γ1: float,
     γ2: float,
-    ds: jndarray,
+    ds: ndarray,
     F: float,
-    u: jndarray,
-    v: jndarray,
-) -> tuple[jndarray, jndarray]:
+    u: ndarray,
+    v: ndarray,
+) -> tuple[ndarray, ndarray]:
     u1 = (
-        jnp.roll(u, 1) * (jnp.roll(u, -1) - jnp.roll(u, 2))
-        + γ1 * jnp.sum(u * v.T, axis=0)
+        np.roll(u, 1) * (np.roll(u, -1) - np.roll(u, 2))
+        + γ1 * np.sum(u * v.T, axis=0)
         - γ2 * u
         + F
     )
 
-    v1 = -ds * v - lax.expand_dims(γ1 * u**2, (1,))
+    v1 = -ds * v - np.expand_dims(γ1 * u**2, (1,))
 
     return u1, v1
 
 
 def rk4(
     system: System,
-    u0: jndarray,
-    v0: jndarray,
+    u0: ndarray,
+    v0: ndarray,
     t0: float,
     tf: float,
     dt: float,
-) -> tuple[jndarray, jndarray]:
-    tls = jnp.arange(t0, tf, dt)
+) -> tuple[ndarray, ndarray]:
+    tls = np.arange(t0, tf, dt)
     N = len(tls)
 
     # Store the solution at every step.
     I, J = system.I, system.J
-    U = jnp.full((N, I), jnp.inf)
-    V = jnp.full((N, I, J), jnp.inf)
+    U = np.full((N, I), np.inf)
+    V = np.full((N, I, J), np.inf)
 
     # Set initial state.
-    U = U.at[0].set(u0)
-    V = V.at[0].set(v0)
+    U[0] = u0
+    V[0] = v0
 
-    (U, V), _ = lax.fori_loop(1, N, system.step, ((U, V), dt))
+    for n in range(1, N):
+        (U, V), _ = system.step(n, ((U, V), dt))
 
     return U, V
 
