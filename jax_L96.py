@@ -34,14 +34,48 @@ class System:
         self.γ1, self.γ2 = γ1, γ2
         self.c1, self.c2 = c1, c2
 
-        def f_true(γ1, γ2, u, v):
-            return ode(γ1, γ2, ds, F, u, v)
+    def ode(
+        self,
+        p1: float,
+        p2: float,
+        ds: jndarray,
+        F: float,
+        u: jndarray,
+        v: jndarray,
+    ) -> tuple[jndarray, jndarray]:
+        up = (
+            jnp.roll(u, 1) * (jnp.roll(u, -1) - jnp.roll(u, 2))
+            + p1 * jnp.sum(u * v.T, axis=0)
+            - p2 * u
+            + F
+        )
 
-        def f_nudge(c1, c2, u, v, u_true):
-            up, vp = ode(c1, c2, ds, F, u, v)
-            up -= μ * (u - u_true)
+        vp = -ds * v - lax.expand_dims(p1 * u**2, (1,))
 
-            return up, vp
+        return up, vp
+
+    def f_true(self, γ1, γ2, u, v):
+        return self.ode(γ1, γ2, self.ds, self.F, u, v)
+
+    def f_nudge(self, c1, c2, u, v, u_true):
+        up, vp = self.ode(c1, c2, self.ds, self.F, u, v)
+        up -= self.μ * (u - u_true)
+
+        return up, vp
+
+    # These attributes are read-only, while the parameters γ and c may change.
+    I = property(lambda self: self._I)
+    J = property(lambda self: self._J)
+    J_sim = property(lambda self: self._J_sim)
+    ds = property(lambda self: self._ds)
+    F = property(lambda self: self._F)
+    μ = property(lambda self: self._μ)
+
+
+class RK4:
+    def __init__(self, system: System):
+        f_true = system.f_true
+        f_nudge = system.f_nudge
 
         def step_true(n, vals):
             """This function will be jitted."""
@@ -94,65 +128,37 @@ class System:
         self.step_true = step_true
         self.step_nudge = step_nudge
 
-    # These attributes are read-only, while the parameters γ and c may change.
-    I = property(lambda self: self._I)
-    J = property(lambda self: self._J)
-    J_sim = property(lambda self: self._J_sim)
-    ds = property(lambda self: self._ds)
-    F = property(lambda self: self._F)
-    μ = property(lambda self: self._μ)
+    def solve(
+        self,
+        system: System,
+        u0: jndarray,
+        v0: jndarray,
+        t0: float,
+        tf: float,
+        dt: float,
+        U_true: None | jndarray = None,
+    ) -> tuple[jndarray, jndarray]:
+        tls = jnp.arange(t0, tf, dt)
+        N = len(tls)
 
+        # Store the solution at every step.
+        I, J = system.I, system.J if U_true is None else system.J_sim
+        U = jnp.full((N, I), jnp.inf)
+        V = jnp.full((N, I, J), jnp.inf)
 
-def ode(
-    p1: float,
-    p2: float,
-    ds: jndarray,
-    F: float,
-    u: jndarray,
-    v: jndarray,
-) -> tuple[jndarray, jndarray]:
-    up = (
-        jnp.roll(u, 1) * (jnp.roll(u, -1) - jnp.roll(u, 2))
-        + p1 * jnp.sum(u * v.T, axis=0)
-        - p2 * u
-        + F
-    )
+        # Set initial state.
+        U = U.at[0].set(u0)
+        V = V.at[0].set(v0)
 
-    vp = -ds * v - lax.expand_dims(p1 * u**2, (1,))
+        if U_true is None:
+            γ1, γ2 = system.γ1, system.γ2
+            (U, V), _ = lax.fori_loop(
+                1, N, self.step_true, ((U, V), (dt, γ1, γ2))
+            )
+        else:
+            c1, c2 = system.c1, system.c2
+            (U, V), _ = lax.fori_loop(
+                1, N, self.step_nudge, ((U, V), (dt, c1, c2, U_true))
+            )
 
-    return up, vp
-
-
-def rk4(
-    system: System,
-    u0: jndarray,
-    v0: jndarray,
-    t0: float,
-    tf: float,
-    dt: float,
-    U_true: None | jndarray = None,
-) -> tuple[jndarray, jndarray]:
-    tls = jnp.arange(t0, tf, dt)
-    N = len(tls)
-
-    # Store the solution at every step.
-    I, J = system.I, system.J if U_true is None else system.J_sim
-    U = jnp.full((N, I), jnp.inf)
-    V = jnp.full((N, I, J), jnp.inf)
-
-    # Set initial state.
-    U = U.at[0].set(u0)
-    V = V.at[0].set(v0)
-
-    if U_true is None:
-        γ1, γ2 = system.γ1, system.γ2
-        (U, V), _ = lax.fori_loop(
-            1, N, system.step_true, ((U, V), (dt, γ1, γ2))
-        )
-    else:
-        c1, c2 = system.c1, system.c2
-        (U, V), _ = lax.fori_loop(
-            1, N, system.step_nudge, ((U, V), (dt, c1, c2, U_true))
-        )
-
-    return U, V
+        return U, V
