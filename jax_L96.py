@@ -2,7 +2,6 @@
 Code to run and nudge the L96 model using jax and jit.
 """
 
-import jax
 from jax import numpy as jnp, lax
 # jax.config.update("jax_enable_x64", True)
 
@@ -26,30 +25,36 @@ class System:
         F: float,
         μ: float,
     ):
-        self.I, self.J, self.J_sim = I, J, J_sim
+        self._I, self._J, self._J_sim = I, J, J_sim
+
+        self._ds = ds
+        self._F = F
+        self._μ = μ
 
         self.γ1, self.γ2 = γ1, γ2
         self.c1, self.c2 = c1, c2
-        self.ds = ds
 
-        self.F = F
-        self.μ = μ
-
-        def f(u, v):
+        def f_true(γ1, γ2, u, v):
             return ode(γ1, γ2, ds, F, u, v)
 
-        self.ode = f
+        def f_nudge(c1, c2, u, v, u_true):
+            up, vp = ode(c1, c2, ds, F, u, v)
+            up -= μ * (u - u_true)
 
-        def step(n, vals):
-            (U, V), dt = vals
+            return up, vp
+
+        def step_true(n, vals):
+            """This function will be jitted."""
+            (U, V), (dt, γ1, γ2) = vals
+            p = γ1, γ2
 
             u = U[n - 1]
             v = V[n - 1]
 
-            k1u, k1v = f(u, v)
-            k2u, k2v = f(u + dt * k1u / 2, v + dt * k1v / 2)
-            k3u, k3v = f(u + dt * k2u / 2, v + dt * k2v / 2)
-            k4u, k4v = f(u + dt * k3u, v + dt * k3v)
+            k1u, k1v = f_true(*p, u, v)
+            k2u, k2v = f_true(*p, u + dt * k1u / 2, v + dt * k1v / 2)
+            k3u, k3v = f_true(*p, u + dt * k2u / 2, v + dt * k2v / 2)
+            k4u, k4v = f_true(*p, u + dt * k3u, v + dt * k3v)
 
             u1 = u + (dt / 6) * (k1u + 2 * k2u + 2 * k3u + k4u)
             v1 = v + (dt / 6) * (k1v + 2 * k2v + 2 * k3v + k4v)
@@ -57,29 +62,65 @@ class System:
             U = U.at[n].set(u1)
             V = V.at[n].set(v1)
 
-            return (U, V), dt
+            return (U, V), (dt, γ1, γ2)
 
-        self.step = step
+        def interpolate(ratio, u0, u1):
+            """This function will be jitted."""
+            return u0 * (1 - ratio) + u1 * ratio
+
+        def step_nudge(n, vals):
+            """This function will be jitted."""
+            (U, V), (dt, c1, c2, U_true) = vals
+            p = c1, c2
+
+            u = U[n - 1]
+            v = V[n - 1]
+            ut0, ut1 = U_true[n - 1], U_true[n]
+
+            interp = interpolate(1 / 2, ut0, ut1)
+            k1u, k1v = f_nudge(*p, u, v, ut0)
+            k2u, k2v = f_nudge(*p, u + dt * k1u / 2, v + dt * k1v / 2, interp)
+            k3u, k3v = f_nudge(*p, u + dt * k2u / 2, v + dt * k2v / 2, interp)
+            k4u, k4v = f_nudge(*p, u + dt * k3u, v + dt * k3v, ut1)
+
+            u1 = u + (dt / 6) * (k1u + 2 * k2u + 2 * k3u + k4u)
+            v1 = v + (dt / 6) * (k1v + 2 * k2v + 2 * k3v + k4v)
+
+            U = U.at[n].set(u1)
+            V = V.at[n].set(v1)
+
+            return (U, V), (dt, c1, c2, U_true)
+
+        self.step_true = step_true
+        self.step_nudge = step_nudge
+
+    # These attributes are read-only, while the parameters γ and c may change.
+    I = property(lambda self: self._I)
+    J = property(lambda self: self._J)
+    J_sim = property(lambda self: self._J_sim)
+    ds = property(lambda self: self._ds)
+    F = property(lambda self: self._F)
+    μ = property(lambda self: self._μ)
 
 
 def ode(
-    γ1: float,
-    γ2: float,
+    p1: float,
+    p2: float,
     ds: jndarray,
     F: float,
     u: jndarray,
     v: jndarray,
 ) -> tuple[jndarray, jndarray]:
-    u1 = (
+    up = (
         jnp.roll(u, 1) * (jnp.roll(u, -1) - jnp.roll(u, 2))
-        + γ1 * jnp.sum(u * v.T, axis=0)
-        - γ2 * u
+        + p1 * jnp.sum(u * v.T, axis=0)
+        - p2 * u
         + F
     )
 
-    v1 = -ds * v - lax.expand_dims(γ1 * u**2, (1,))
+    vp = -ds * v - lax.expand_dims(p1 * u**2, (1,))
 
-    return u1, v1
+    return up, vp
 
 
 def rk4(
@@ -89,12 +130,13 @@ def rk4(
     t0: float,
     tf: float,
     dt: float,
+    U_true: None | jndarray = None,
 ) -> tuple[jndarray, jndarray]:
     tls = jnp.arange(t0, tf, dt)
     N = len(tls)
 
     # Store the solution at every step.
-    I, J = system.I, system.J
+    I, J = system.I, system.J if U_true is None else system.J_sim
     U = jnp.full((N, I), jnp.inf)
     V = jnp.full((N, I, J), jnp.inf)
 
@@ -102,11 +144,15 @@ def rk4(
     U = U.at[0].set(u0)
     V = V.at[0].set(v0)
 
-    (U, V), _ = lax.fori_loop(1, N, system.step, ((U, V), dt))
+    if U_true is None:
+        γ1, γ2 = system.γ1, system.γ2
+        (U, V), _ = lax.fori_loop(
+            1, N, system.step_true, ((U, V), (dt, γ1, γ2))
+        )
+    else:
+        c1, c2 = system.c1, system.c2
+        (U, V), _ = lax.fori_loop(
+            1, N, system.step_nudge, ((U, V), (dt, c1, c2, U_true))
+        )
 
     return U, V
-
-
-def interpolate():
-    """Fit an interpolation to a solution."""
-    raise NotImplementedError()
