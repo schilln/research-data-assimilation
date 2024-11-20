@@ -3,7 +3,7 @@ from collections.abc import Callable
 import numpy as np
 from scipy.integrate import solve_ivp
 
-import L96
+import archive.L96 as L96
 
 ndarray = np.ndarray
 
