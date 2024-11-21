@@ -1,0 +1,29 @@
+\documentclass[12pt]{article}
+
+\usepackage{style}
+
+\title{A Draft of a Math Paper}
+\author{Dr. Nathan Schill man}
+\date{the future}
+
+\begin{document}
+\maketitle
+
+Data assimilation is an important topic in many areas of applied mathematics.
+The central issue is incorporating data into a model in some way that improves the model's quality.
+The AOT algorithm [cite] is one general approach in which incomplete data are used to ``nudge'' a simulated model (in the form of a differential equation) toward the observable portion of nature.
+We hope that if the model resembles nature enough and the observations are complete enough, then the simulation will converge to nature.
+
+However, models generally don't resemble nature exactly.
+The ``relax-then-punch'' approach [cite] assumes that the model has the same form as nature but differs in the values of some (finite number of) parameters.
+Previous research has found positive results in converging to nature [cite].
+
+Yet even so, in many applications an artificial model is likely to not even have the same form as nature, so that there are no ``true'' parameters to recover or converge to.
+This paper looks at the performance of the ``relax-then-punch'' approach in this scenario.
+The sections are organized as follows:
+\begin{itemize}
+    \item In section 1 we present results of numerical simulations, showing the convergence of parameters to values that minimize the difference between nature and the simulated system.
+    \item In section 2 we present rigorous justification for the approach along with bounds on the error between nature and the simulated system as a function of the parameters and properties of the system.
+\end{itemize}
+
+\end{document}
