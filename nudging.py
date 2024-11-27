@@ -5,7 +5,8 @@ jndarray = jnp.ndarray
 
 SEED = 42
 
-def simulate_separate(system, solver, t0, tf, dt):
+
+def simulate_separate(system, solver, t0, tf, dt, interp_method=None):
     I, J, J_sim = system.I, system.J, system.J_sim
 
     # Initial true state
@@ -28,17 +29,30 @@ def simulate_separate(system, solver, t0, tf, dt):
     )
 
     # Nudged solution
-    Un, Vn = solver.solve(
-        system,
-        u0_sim,
-        v0_sim,
-        t0,
-        tf,
-        dt,
-        U,
-    )
+    if interp_method is None:
+        Un, Vn = solver.solve(
+            system,
+            u0_sim,
+            v0_sim,
+            t0,
+            tf,
+            dt,
+            U,
+        )
+    else:
+        Un, Vn = solver.solve(
+            system,
+            u0_sim,
+            v0_sim,
+            t0,
+            tf,
+            dt,
+            U,
+            interp_method,
+        )
 
     return U, V, Un, Vn
+
 
 def simulate_simultaneous(system, solver, t0, tf, dt):
     I, J, J_sim = system.I, system.J, system.J_sim
