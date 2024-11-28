@@ -69,6 +69,26 @@ class System:
 
         return *self.ode(γ1, γ2, self.ds, self.F, u, v), unp, vnp
 
+    def compute_w1(self, u, v):
+        """
+        Parameters
+        ----------
+        U, V
+            The nudged large-scale and small-scale systems
+        """
+
+        return jnp.sum(v, axis=1) * u / self.μ
+
+    def compute_w2(self, u):
+        """
+        Parameters
+        ----------
+        U
+            The nudged large-scale system
+        """
+
+        return -u / self.μ
+
     # These attributes are read-only, while the parameters γ and c may change.
     I = property(lambda self: self._I)
     J = property(lambda self: self._J)
@@ -76,6 +96,22 @@ class System:
     ds = property(lambda self: self._ds)
     F = property(lambda self: self._F)
     μ = property(lambda self: self._μ)
+
+
+def gradient_descent(system: System, u, un, vn, r: float):
+    """
+    Parameters
+    ----------
+    r
+        Learning rate
+    """
+
+    diff = un - u
+    gradient = jnp.array(
+        [diff @ system.compute_w1(un, vn), diff @ system.compute_w2(un)]
+    )
+
+    return system.c1 - r * gradient[0], system.c2 - r * gradient[1]
 
 
 class RK4:
@@ -146,7 +182,7 @@ class RK4:
         t0: float,
         tf: float,
         dt: float,
-    ) -> tuple[jndarray, jndarray]:
+    ) -> tuple[jndarray, jndarray, jndarray, jndarray]:
         tls = jnp.arange(t0, tf, dt)
         N = len(tls)
 
