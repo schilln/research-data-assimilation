@@ -98,7 +98,7 @@ class System:
     μ = property(lambda self: self._μ)
 
 
-def gradient_descent(system: System, u, un, vn, r: float):
+def gradient_descent(system: System, u, un, vn, r: float = 1e-4):
     """
     Parameters
     ----------
@@ -112,6 +112,28 @@ def gradient_descent(system: System, u, un, vn, r: float):
     )
 
     return system.c1 - r * gradient[0], system.c2 - r * gradient[1]
+
+
+def levenberg_marquardt(
+    system: System, u, un, vn, r: float = 1e-3, λ: float = 1e-2
+):
+    """
+    Parameters
+    ----------
+    r
+        Learning rate
+    λ
+        Levenberg–Marquardt parameter
+    """
+
+    diff = un - u
+    gradient = jnp.array(
+        [diff @ system.compute_w1(un, vn), diff @ system.compute_w2(un)]
+    )
+    mat = jnp.outer(gradient, gradient)
+
+    step = jnp.linalg.solve(mat + λ * jnp.eye(2), gradient)
+    return system.c1 - r * step[0], system.c2 - r * step[1]
 
 
 class RK4:
