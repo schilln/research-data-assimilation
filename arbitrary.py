@@ -45,6 +45,8 @@ class System:
         """
         Parameters
         ----------
+        cs
+            Estimated parameter values to be used by the nudged system
         u
             True large-scale systems
         v
@@ -53,6 +55,11 @@ class System:
             Nudged large-scale systems
         vn
             Nudged small-scale systems
+
+        Returns
+        -------
+        up, vp, unp, vnp
+            The time derivatives of u, v, un, vn
         """
         unp, vnp = self.estimated_ode(cs, un, vn)
         unp -= self.μ * (un - u)
@@ -64,6 +71,19 @@ class System:
         u: jndarray,
         v: jndarray,
     ) -> tuple[jndarray, jndarray]:
+        """
+        Parameters
+        ----------
+        u
+            True large-scale systems
+        v
+            True small-scale systems
+
+        Returns
+        -------
+        up, vp
+            The time derivatives of u, v
+        """
         raise NotImplementedError()
 
     def estimated_ode(
@@ -72,14 +92,35 @@ class System:
         u: jndarray,
         v: jndarray,
     ) -> tuple[jndarray, jndarray]:
+        """
+        Parameters
+        ----------
+        cs
+            Estimated parameter values to be used by the nudged system
+        u
+            Nudged large-scale systems
+        v
+            Nudged small-scale systems
+
+        Returns
+        -------
+        up, vp
+            The time derivatives of u, v
+        """
         raise NotImplementedError()
 
-    def compute_w(self, un, vn):
+    def compute_w(self, un: jndarray, vn: jndarray) -> jndarray:
         """
         Parameters
         ----------
         un, vn
             The nudged large-scale and small-scale systems, respectively
+
+        Returns
+        -------
+        W
+            The ith row corresponds to the asymptotic approximation of the ith
+            senstitivity corresponding to the ith unknown parameter ci
         """
         raise NotImplementedError()
 
@@ -144,21 +185,9 @@ class L96(System):
         return up, vp
 
     def compute_w(self, un, vn):
-        """
-        Parameters
-        ----------
-        un, vn
-            The nudged large-scale and small-scale systems, respectively
-
-        Returns
-        -------
-        W
-            The ith row corresponds to the asymptotic approximation of the ith
-            senstitivity corresponding to the ith unknown parameter ci.
-        """
         return jnp.array([jnp.sum(vn, axis=1) * un / self.μ, -un / self.μ])
 
-    # These attributes are read-only.
+    # The following attributes are read-only.
     I = property(lambda self: self._I)
     J = property(lambda self: self._J)
     J_sim = property(lambda self: self._J_sim)
@@ -190,6 +219,11 @@ def levenberg_marquardt(
         Learning rate
     λ
         Levenberg–Marquardt parameter
+    
+    Returns
+    -------
+    new_cs
+        New parameter values cs
     """
 
     diff = un - u
