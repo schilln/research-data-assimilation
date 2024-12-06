@@ -240,12 +240,11 @@ class RK4:
                 n + dt * k3n,
             )
 
-            # TODO: Do this in-place.
-            t1 = t + (dt / 6) * (k1t + 2 * k2t + 2 * k3t + k4t)
-            n1 = n + (dt / 6) * (k1n + 2 * k2n + 2 * k3n + k4n)
+            t = t.at[:].add((dt / 6) * (k1t + 2 * k2t + 2 * k3t + k4t))
+            n = n.at[:].add((dt / 6) * (k1n + 2 * k2n + 2 * k3n + k4n))
 
-            true = true.at[i].set(t1)
-            nudged = nudged.at[i].set(n1)
+            true = true.at[i].set(t)
+            nudged = nudged.at[i].set(n)
 
             return (true, nudged), (dt, cs)
 
