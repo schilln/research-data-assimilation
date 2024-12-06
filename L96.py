@@ -2,7 +2,7 @@
 Code to run, nudge, and estimate parameters for the two-layer L96 model.
 """
 
-from jax import numpy as jnp, lax
+from jax import numpy as jnp
 
 from base_nudging import System
 
@@ -42,7 +42,7 @@ class L96(System):
             + F
         )
 
-        vp = -ds * v - lax.expand_dims(p1 * u**2, (1,))
+        vp = -ds * v - jnp.expand_dims(p1 * u**2, axis=1)
 
         return jnp.concatenate((jnp.expand_dims(up, axis=1), vp), axis=1)
 
@@ -63,7 +63,7 @@ class L96(System):
             + F
         )
 
-        vp = -ds * v - lax.expand_dims(p1 * u**2, (1,))
+        vp = -ds * v - jnp.expand_dims(p1 * u**2, axis=1)
 
         return jnp.concatenate((jnp.expand_dims(up, axis=1), vp), axis=1)
 
