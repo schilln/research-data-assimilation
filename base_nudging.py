@@ -21,7 +21,12 @@ jndarray = jnp.ndarray
 
 class System:
     def __init__(
-        self, μ: float, bs: jndarray, γs: jndarray, cs: jndarray, observed_mask
+        self,
+        μ: float,
+        bs: jndarray,
+        γs: jndarray,
+        cs: jndarray,
+        observed_slice: slice,
     ):
         """
         An abstract base class defining some common methods and an interface
@@ -40,14 +45,14 @@ class System:
         cs
             Estimated parameter values to be used by the nudged system (may or
             may not correspond to `γs`)
-        observed_mask
-            The mask denoting the part of the true and nudged system states when
-            nudging in `f`.
+        observed_slice
+            The slice denoting the observed part of the true and nudged system
+            states when nudging in `f`. May use `jnp.s_` to define slice to use.
         """
         self._μ = μ
         self._bs = bs
         self._γs = γs
-        self._observed_mask = observed_mask
+        self._observed_slice = observed_slice
 
         self.cs = cs
 
@@ -75,12 +80,10 @@ class System:
         truep, nudgedp
             The time derivatives of `true` and `nudged`
         """
-        mask = self.observed_mask
+        s = self.observed_slice
 
         nudgedp = self.estimated_ode(cs, nudged)
-        nudgedp = nudgedp.at[mask].subtract(
-            self.μ * (nudged[mask] - true[mask])
-        )
+        nudgedp = nudgedp.at[s].subtract(self.μ * (nudged[s] - true[s]))
 
         return self.ode(true), nudgedp
 
@@ -146,7 +149,7 @@ class System:
     μ = property(lambda self: self._μ)
     bs = property(lambda self: self._bs)
     γs = property(lambda self: self._γs)
-    observed_mask = property(lambda self: self._observed_mask)
+    observed_slice = property(lambda self: self._observed_slice)
 
 
 def gradient_descent(
@@ -171,7 +174,7 @@ def gradient_descent(
         New parameter values cs
     """
 
-    diff = nudged[system.observed_mask].ravel() - observed_true.ravel()
+    diff = nudged[system.observed_slice].ravel() - observed_true.ravel()
     gradient = diff @ system.compute_w(nudged).T
 
     return system.cs - r * gradient
@@ -201,8 +204,7 @@ def levenberg_marquardt(
     new_cs
         New parameter values cs
     """
-
-    diff = nudged[system.observed_mask].ravel() - observed_true.ravel()
+    diff = nudged[system.observed_slice].ravel() - observed_true.ravel()
 
     gradient = diff @ system.compute_w(nudged).T
     mat = jnp.outer(gradient, gradient)
@@ -238,6 +240,7 @@ class RK4:
                 n + dt * k3n,
             )
 
+            # TODO: Do this in-place.
             t1 = t + (dt / 6) * (k1t + 2 * k2t + 2 * k3t + k4t)
             n1 = n + (dt / 6) * (k1n + 2 * k2n + 2 * k3n + k4n)
 
