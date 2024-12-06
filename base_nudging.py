@@ -20,7 +20,9 @@ jndarray = jnp.ndarray
 
 
 class System:
-    def __init__(self, μ: float, bs: jndarray, γs: jndarray, cs: jndarray):
+    def __init__(
+        self, μ: float, bs: jndarray, γs: jndarray, cs: jndarray, observed_mask
+    ):
         """
         An abstract base class defining some common methods and an interface
         on which other classes and functions can rely when using with derived
@@ -38,94 +40,99 @@ class System:
         cs
             Estimated parameter values to be used by the nudged system (may or
             may not correspond to `γs`)
+        observed_mask
+            The mask denoting the part of the true and nudged system states when
+            nudging in `f`.
         """
         self._μ = μ
         self._bs = bs
         self._γs = γs
+        self._observed_mask = observed_mask
 
         self.cs = cs
 
     def f(
         self,
         cs: jndarray,
-        u: jndarray,
-        v: jndarray,
-        un: jndarray,
-        vn: jndarray,
-    ) -> tuple[jndarray, jndarray, jndarray, jndarray]:
+        true: jndarray,
+        nudged: jndarray,
+    ) -> tuple[jndarray, jndarray]:
         """
+
+        This function will be jitted.
+
         Parameters
         ----------
         cs
             Estimated parameter values to be used by the nudged system
-        u
-            True large-scale systems
-        v
-            True small-scale systems
-        un
-            Nudged large-scale systems
-        vn
-            Nudged small-scale systems
+        true
+            True system
+        nudged
+            Nudged system
 
         Returns
         -------
-        up, vp, unp, vnp
-            The time derivatives of u, v, un, vn
+        truep, nudgedp
+            The time derivatives of `true` and `nudged`
         """
-        unp, vnp = self.estimated_ode(cs, un, vn)
-        unp -= self.μ * (un - u)
+        mask = self.observed_mask
 
-        return *self.ode(u, v), unp, vnp
+        nudgedp = self.estimated_ode(cs, nudged)
+        nudgedp = nudgedp.at[mask].subtract(
+            self.μ * (nudged[mask] - true[mask])
+        )
+
+        return self.ode(true), nudgedp
 
     def ode(
         self,
-        u: jndarray,
-        v: jndarray,
-    ) -> tuple[jndarray, jndarray]:
+        true: jndarray,
+    ) -> jndarray:
         """
+
+        This function will be jitted.
+
         Parameters
         ----------
-        u
-            True large-scale systems
-        v
-            True small-scale systems
+        true
+            True system
 
         Returns
         -------
-        up, vp
-            The time derivatives of u, v
+        truep
+            The time derivative of `true`
         """
         raise NotImplementedError()
 
     def estimated_ode(
         self,
         cs: jndarray,
-        u: jndarray,
-        v: jndarray,
-    ) -> tuple[jndarray, jndarray]:
+        nudged: jndarray,
+    ) -> jndarray:
         """
+
+        This function will be jitted.
+
         Parameters
         ----------
         cs
             Estimated parameter values to be used by the nudged system
-        u
-            Nudged large-scale systems
-        v
-            Nudged small-scale systems
+        nudged
+            Nudged system
 
         Returns
         -------
-        up, vp
-            The time derivatives of u, v
+        nudgedp
+            The time derivative of `nudged`
         """
         raise NotImplementedError()
 
-    def compute_w(self, un: jndarray, vn: jndarray) -> jndarray:
+    def compute_w(self, nudged: jndarray) -> jndarray:
         """
         Parameters
         ----------
-        un, vn
-            The nudged large-scale and small-scale systems, respectively
+        nudged
+            The nudged system
 
         Returns
         -------
@@ -139,12 +146,22 @@ class System:
     μ = property(lambda self: self._μ)
     bs = property(lambda self: self._bs)
     γs = property(lambda self: self._γs)
+    observed_mask = property(lambda self: self._observed_mask)
 
 
-def gradient_descent(system: System, u, un, vn, r: float = 1e-4):
+def gradient_descent(
+    system: System,
+    observed_true: jndarray,
+    nudged: jndarray,
+    r: float = 1e-4,
+):
     """
     Parameters
     ----------
+    observed_true
+        The observed part of the true system
+    nudged
+        The whole nudged system
     r
         Learning rate
 
@@ -154,18 +171,26 @@ def gradient_descent(system: System, u, un, vn, r: float = 1e-4):
         New parameter values cs
     """
 
-    diff = un - u
-    gradient = diff @ system.compute_w(un, vn).T
+    diff = nudged[system.observed_mask].ravel() - observed_true.ravel()
+    gradient = diff @ system.compute_w(nudged).T
 
     return system.cs - r * gradient
 
 
 def levenberg_marquardt(
-    system: System, u, un, vn, r: float = 1e-3, λ: float = 1e-2
+    system: System,
+    observed_true: jndarray,
+    nudged: jndarray,
+    r: float = 1e-3,
+    λ: float = 1e-2,
 ):
     """
     Parameters
     ----------
+    observed_true
+        The observed part of the true system.
+    nudged
+        The whole nudged system
     r
         Learning rate
     λ
@@ -177,9 +202,9 @@ def levenberg_marquardt(
         New parameter values cs
     """
 
-    diff = un - u
+    diff = nudged[system.observed_mask].ravel() - observed_true.ravel()
 
-    gradient = diff @ system.compute_w(un, vn).T
+    gradient = diff @ system.compute_w(nudged).T
     mat = jnp.outer(gradient, gradient)
 
     step = jnp.linalg.solve(mat + λ * jnp.eye(len(gradient)), gradient)
@@ -190,61 +215,44 @@ class RK4:
     def __init__(self, system: System):
         f = system.f
 
-        def step(n, vals):
+        def step(i, vals):
             """This function will be jitted."""
-            (U, V, Un, Vn), (dt, cs) = vals
-            u = U[n - 1]
-            v = V[n - 1]
+            (true, nudged), (dt, cs) = vals
+            t = true[i - 1]
+            n = nudged[i - 1]
 
-            un = Un[n - 1]
-            vn = Vn[n - 1]
-
-            k1u, k1v, k1un, k1vn = f(cs, u, v, un, vn)
-            k2u, k2v, k2un, k2vn = f(
+            k1t, k1n = f(cs, t, n)
+            k2t, k2n = f(
                 cs,
-                u + dt * k1u / 2,
-                v + dt * k1v / 2,
-                un + dt * k1un / 2,
-                vn + dt * k1vn / 2,
+                t + dt * k1t / 2,
+                n + dt * k1n / 2,
             )
-            k3u, k3v, k3un, k3vn = f(
+            k3t, k3n = f(
                 cs,
-                u + dt * k2u / 2,
-                v + dt * k2v / 2,
-                un + dt * k2un / 2,
-                vn + dt * k2vn / 2,
+                t + dt * k2t / 2,
+                n + dt * k2n / 2,
             )
-            k4u, k4v, k4un, k4vn = f(
+            k4t, k4n = f(
                 cs,
-                u + dt * k3u,
-                v + dt * k3v,
-                un + dt * k3un,
-                vn + dt * k3vn,
+                t + dt * k3t,
+                n + dt * k3n,
             )
 
-            u1 = u + (dt / 6) * (k1u + 2 * k2u + 2 * k3u + k4u)
-            v1 = v + (dt / 6) * (k1v + 2 * k2v + 2 * k3v + k4v)
+            t1 = t + (dt / 6) * (k1t + 2 * k2t + 2 * k3t + k4t)
+            n1 = n + (dt / 6) * (k1n + 2 * k2n + 2 * k3n + k4n)
 
-            u1n = un + (dt / 6) * (k1un + 2 * k2un + 2 * k3un + k4un)
-            v1n = vn + (dt / 6) * (k1vn + 2 * k2vn + 2 * k3vn + k4vn)
+            true = true.at[i].set(t1)
+            nudged = nudged.at[i].set(n1)
 
-            U = U.at[n].set(u1)
-            V = V.at[n].set(v1)
-
-            Un = Un.at[n].set(u1n)
-            Vn = Vn.at[n].set(v1n)
-
-            return (U, V, Un, Vn), (dt, cs)
+            return (true, nudged), (dt, cs)
 
         self.step = step
 
     def solve(
         self,
         system: System,
-        u0: jndarray,
-        v0: jndarray,
-        un0: jndarray,
-        vn0: jndarray,
+        true0: jndarray,
+        nudged0: jndarray,
         t0: float,
         tf: float,
         dt: float,
@@ -253,20 +261,15 @@ class RK4:
         N = len(tls)
 
         # Store the solution at every step.
-        I, J, J_sim = system.I, system.J, system.J_sim
-        U = jnp.full((N, I), jnp.inf)
-        V = jnp.full((N, I, J), jnp.inf)
-        Un = jnp.full((N, I), jnp.inf)
-        Vn = jnp.full((N, I, J_sim), jnp.inf)
+        true = jnp.full((N, *true0.shape), jnp.inf)
+        nudged = jnp.full((N, *nudged0.shape), jnp.inf)
 
         # Set initial state.
-        U = U.at[0].set(u0)
-        V = V.at[0].set(v0)
-        Un = U.at[0].set(un0)
-        Vn = V.at[0].set(vn0)
+        true = true.at[0].set(true0)
+        nudged = nudged.at[0].set(nudged0)
 
-        (U, V, Un, Vn), _ = lax.fori_loop(
-            1, N, self.step, ((U, V, Un, Vn), (dt, system.cs))
+        (true, nudged), _ = lax.fori_loop(
+            1, N, self.step, ((true, nudged), (dt, system.cs))
         )
 
-        return U, V, Un, Vn
+        return true, nudged
