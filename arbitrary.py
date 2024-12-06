@@ -28,12 +28,20 @@ class System:
             Estimated parameter values to be used by the nudged system (may or
             may not correspond to `γs`)
         """
-        self.μ = μ
-        self.bs = bs
-        self.γs = γs
+        self._μ = μ
+        self._bs = bs
+        self._γs = γs
+
         self.cs = cs
 
-    def f(self, u, v, un, vn):
+    def f(
+        self,
+        cs: jndarray,
+        u: jndarray,
+        v: jndarray,
+        un: jndarray,
+        vn: jndarray,
+    ) -> tuple[jndarray, jndarray, jndarray, jndarray]:
         """
         Parameters
         ----------
@@ -46,7 +54,7 @@ class System:
         vn
             Nudged small-scale systems
         """
-        unp, vnp = self.estimated_ode(un, vn)
+        unp, vnp = self.estimated_ode(cs, un, vn)
         unp -= self.μ * (un - u)
 
         return *self.ode(u, v), unp, vnp
@@ -60,6 +68,7 @@ class System:
 
     def estimated_ode(
         self,
+        cs: jndarray,
         u: jndarray,
         v: jndarray,
     ) -> tuple[jndarray, jndarray]:
@@ -73,6 +82,11 @@ class System:
             The nudged large-scale and small-scale systems, respectively
         """
         raise NotImplementedError()
+
+    # The following attributes are read-only.
+    μ = property(lambda self: self._μ)
+    bs = property(lambda self: self._bs)
+    γs = property(lambda self: self._γs)
 
 
 class L96(System):
@@ -111,10 +125,11 @@ class L96(System):
 
     def estimated_ode(
         self,
+        cs: jndarray,
         u: jndarray,
         v: jndarray,
     ) -> tuple[jndarray, jndarray]:
-        p1, p2 = self.cs
+        p1, p2 = cs
         F, ds = self.bs[0], self.bs[1:]
 
         up = (
@@ -192,27 +207,30 @@ class RK4:
 
         def step(n, vals):
             """This function will be jitted."""
-            (U, V, Un, Vn), (dt,) = vals
+            (U, V, Un, Vn), (dt, cs) = vals
             u = U[n - 1]
             v = V[n - 1]
 
             un = Un[n - 1]
             vn = Vn[n - 1]
 
-            k1u, k1v, k1un, k1vn = f(u, v, un, vn)
+            k1u, k1v, k1un, k1vn = f(cs, u, v, un, vn)
             k2u, k2v, k2un, k2vn = f(
+                cs,
                 u + dt * k1u / 2,
                 v + dt * k1v / 2,
                 un + dt * k1un / 2,
                 vn + dt * k1vn / 2,
             )
             k3u, k3v, k3un, k3vn = f(
+                cs,
                 u + dt * k2u / 2,
                 v + dt * k2v / 2,
                 un + dt * k2un / 2,
                 vn + dt * k2vn / 2,
             )
             k4u, k4v, k4un, k4vn = f(
+                cs,
                 u + dt * k3u,
                 v + dt * k3v,
                 un + dt * k3un,
@@ -231,7 +249,7 @@ class RK4:
             Un = Un.at[n].set(u1n)
             Vn = Vn.at[n].set(v1n)
 
-            return (U, V, Un, Vn), (dt,)
+            return (U, V, Un, Vn), (dt, cs)
 
         self.step = step
 
@@ -263,7 +281,7 @@ class RK4:
         Vn = V.at[0].set(vn0)
 
         (U, V, Un, Vn), _ = lax.fori_loop(
-            1, N, self.step, ((U, V, Un, Vn), (dt,))
+            1, N, self.step, ((U, V, Un, Vn), (dt, system.cs))
         )
 
         return U, V, Un, Vn
