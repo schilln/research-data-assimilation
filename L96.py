@@ -1,3 +1,7 @@
+"""
+Code to run and nudge the two-layer L96 model.
+"""
+
 from jax import numpy as jnp, lax
 
 from base_nudging import System

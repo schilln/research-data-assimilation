@@ -1,3 +1,19 @@
+"""
+The basic code
+- to use the nudging approach to data assimilation to nudge an estimated system
+  toward an observed "ground truth" system,
+- to use gradient-based methods to estimate optimal parameters, and
+- to numerically solve an ODE system using Runge–Kutta 4.
+
+`System` is an abstract base class on which the other class(es) and function(s)
+in this file depend. Derived classes should implement the unimplemented methods.
+
+`gradient_descent` and `levenberg_marquardt` are two gradient-based methods to
+estimate optimal parameters.
+
+`RK4` numerically solves an ODE implementing `System`.
+"""
+
 from jax import numpy as jnp, lax
 
 jndarray = jnp.ndarray
@@ -6,6 +22,10 @@ jndarray = jnp.ndarray
 class System:
     def __init__(self, μ: float, bs: jndarray, γs: jndarray, cs: jndarray):
         """
+        An abstract base class defining some common methods and an interface
+        on which other classes and functions can rely when using with derived
+        classes.
+
         Parameters
         ----------
         μ
