@@ -193,20 +193,23 @@ class L96(System):
     J_sim = property(lambda self: self._J_sim)
 
 
-# def gradient_descent(system: System, u, un, vn, r: float = 1e-4):
-#     """
-#     Parameters
-#     ----------
-#     r
-#         Learning rate
-#     """
+def gradient_descent(system: System, u, un, vn, r: float = 1e-4):
+    """
+    Parameters
+    ----------
+    r
+        Learning rate
 
-#     diff = un - u
-#     gradient = jnp.array(
-#         [diff @ system.compute_w1(un, vn), diff @ system.compute_w2(un)]
-#     )
+    Returns
+    -------
+    new_cs
+        New parameter values cs
+    """
 
-#     return system.c1 - r * gradient[0], system.c2 - r * gradient[1]
+    diff = un - u
+    gradient = diff @ system.compute_w(un, vn).T
+
+    return system.cs - r * gradient
 
 
 def levenberg_marquardt(
@@ -219,7 +222,7 @@ def levenberg_marquardt(
         Learning rate
     λ
         Levenberg–Marquardt parameter
-    
+
     Returns
     -------
     new_cs
