@@ -14,6 +14,7 @@ estimate optimal parameters.
 `RK4` numerically solves an ODE implementing `System`.
 """
 
+import jax
 from jax import numpy as jnp, lax
 
 jndarray = jnp.ndarray
@@ -131,7 +132,14 @@ class System:
         raise NotImplementedError()
 
     def compute_w(self, nudged: jndarray) -> jndarray:
-        """
+        """Compute the leading-order approximation of the sensitivity equations.
+
+        Subclasses may override this method to optimize computation or to obtain
+        higher-order approximations.
+
+        Note this differs from Josh's paper, equation (2.23), by a negative
+        sign.
+
         Parameters
         ----------
         nudged
@@ -143,7 +151,15 @@ class System:
             The ith row corresponds to the asymptotic approximation of the ith
             senstitivity corresponding to the ith unknown parameter ci
         """
-        raise NotImplementedError()
+        # TODO: This requires computing the entire derivative and then slicing
+        # it using `observed_slice`. Is it possible to reverse this order to
+        # increase efficiency.
+        return (
+            jax.jacrev(self.estimated_ode, 0)(self.cs, nudged)[
+                self.observed_slice
+            ].T
+            / self.μ
+        )
 
     # The following attributes are read-only.
     μ = property(lambda self: self._μ)
