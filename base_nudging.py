@@ -14,6 +14,8 @@ estimate optimal parameters.
 `RK4` numerically solves an ODE implementing `System`.
 """
 
+from functools import partial
+
 import jax
 from jax import numpy as jnp, lax
 
@@ -151,13 +153,12 @@ class System:
             The ith row corresponds to the asymptotic approximation of the ith
             senstitivity corresponding to the ith unknown parameter ci
         """
-        # TODO: This requires computing the entire derivative and then slicing
-        # it using `observed_slice`. Is it possible to reverse this order to
-        # increase efficiency.
+        return self._compute_w(self.cs, nudged)
+
+    @partial(jax.jit, static_argnames="self")
+    def _compute_w(self, cs: jndarray, nudged: jndarray) -> jndarray:
         return (
-            jax.jacrev(self.estimated_ode, 0)(self.cs, nudged)[
-                self.observed_slice
-            ].T
+            jax.jacrev(self.estimated_ode, 0)(cs, nudged)[self.observed_slice].T
             / self.μ
         )
 

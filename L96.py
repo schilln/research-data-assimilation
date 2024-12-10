@@ -2,6 +2,9 @@
 Code to run, nudge, and estimate parameters for the two-layer L96 model.
 """
 
+from functools import partial
+
+import jax
 from jax import numpy as jnp
 
 from base_nudging import System
@@ -67,6 +70,7 @@ class L96(System):
 
         return jnp.concatenate((jnp.expand_dims(up, axis=1), vp), axis=1)
 
+    @partial(jax.jit, static_argnames="self")
     def compute_w(self, nudged):
         un, vn = nudged[self.us], nudged[self.vs]
 
