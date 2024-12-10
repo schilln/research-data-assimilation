@@ -57,8 +57,6 @@ class System:
         self._γs = γs
         self._observed_slice = observed_slice
 
-        self._unobserved_mask = None
-
         self.cs = cs
 
     def f(
@@ -135,26 +133,6 @@ class System:
         """
         raise NotImplementedError()
 
-    def _nudged_unobserved_mask(self, nudged):
-        if self._unobserved_mask is not None:
-            return self._unobserved_mask
-        else:
-            self._unobserved_mask = ~jnp.zeros_like(nudged, dtype=bool)
-            self._unobserved_mask = self._unobserved_mask.at[
-                self.observed_slice
-            ].set(False)
-            return self._unobserved_mask
-
-    @partial(jax.jit, static_argnames="self")
-    def _concat_nudged_observed_unobserved(
-        self, observed, unobserved
-    ) -> jndarray:
-        """Concatenate observed and unobserved portions of nudged state."""
-        concat = jnp.full_like(self._unobserved_mask, jnp.inf, dtype=float)
-        concat = concat.at[self.observed_slice].set(observed)
-        concat = concat.at[self._unobserved_mask].set(unobserved)
-        return concat
-
     def compute_w(self, nudged: jndarray) -> jndarray:
         """Compute the leading-order approximation of the sensitivity equations.
 
@@ -175,21 +153,14 @@ class System:
             The ith row corresponds to the asymptotic approximation of the ith
             senstitivity corresponding to the ith unknown parameter ci
         """
+        return self._compute_w(self.cs, nudged)
 
-        unobserved = nudged[self._nudged_unobserved_mask(nudged)]
-
+    @partial(jax.jit, static_argnames="self")
+    def _compute_w(self, cs: jndarray, nudged: jndarray) -> jndarray:
         return (
-            jax.jacrev(
-                lambda cs, observed: self.estimated_ode(
-                    cs,
-                    self._concat_nudged_observed_unobserved(
-                        observed, unobserved
-                    ),
-                ),
-                0,
-            )(self.cs, nudged[self.observed_slice]).T
+            jax.jacrev(self.estimated_ode, 0)(cs, nudged)[self.observed_slice].T
             / self.μ
-        )[self.observed_slice]
+        )
 
     # The following attributes are read-only.
     μ = property(lambda self: self._μ)
