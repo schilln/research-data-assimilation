@@ -4,7 +4,7 @@ Code to run, nudge, and estimate parameters for the L63 model.
 
 from jax import numpy as jnp
 
-from base_nudging import System
+from base import System
 
 jndarray = jnp.ndarray
 

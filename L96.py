@@ -7,7 +7,7 @@ from functools import partial
 import jax
 from jax import numpy as jnp
 
-from base_nudging import System
+from base import System
 
 jndarray = jnp.ndarray
 
