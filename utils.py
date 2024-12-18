@@ -9,7 +9,7 @@ import numpy as np
 from jax import numpy as jnp
 
 import base
-from simulator import RK4
+from simulator import Solver
 
 
 jndarray = jnp.ndarray
@@ -17,7 +17,7 @@ jndarray = jnp.ndarray
 
 def run_update(
     system: base.System,
-    solver: RK4,
+    solver: Solver,
     dt: float,
     T0: float,
     Tf: float,
@@ -74,7 +74,7 @@ def run_update(
     t0 = T0
     tf = t0 + t_relax
     while tf <= Tf:
-        true, nudged = solver.solve(system, true0, nudged0, t0, tf, dt)
+        true, nudged = solver.solve(true0, nudged0, t0, tf, dt)
 
         true0, nudged0 = true[-1], nudged[-1]
 
