@@ -9,22 +9,23 @@ import numpy as np
 from jax import numpy as jnp
 
 import base
-from simulator import Solver, MultistepSolver
-
+import simulator
 
 jndarray = jnp.ndarray
 
 
 def run_update(
     system: base.System,
-    solver: Solver,
+    solver: simulator.Solver,
     dt: float,
     T0: float,
     Tf: float,
     t_relax: float,
     true0: jndarray,
     nudged0: jndarray,
-    method: Callable[[jndarray, jndarray], jndarray] = base.levenberg_marquardt,
+    method: Callable[
+        [base.System, jndarray, jndarray], jndarray
+    ] = base.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Run `system` and update parameter values with `method`, and return
     sequence of parameter values and errors between nudged and true states.
@@ -34,7 +35,7 @@ def run_update(
     system
         The system to simulate
     solver
-        An instance of `RK4` to simulate `system`
+        An instance of `simulator.Solver` to simulate `system`
     dt
         The step size to use in `solver`
     T0
@@ -68,6 +69,32 @@ def run_update(
         `T0` to approximately `Tf`
         shape (N + 1,) where N is the number of parameter updates performed
     """
+
+    if isinstance(solver, simulator.MultistepSolver):
+        return _run_update_multistep(
+            system, solver, dt, T0, Tf, t_relax, true0, nudged0, method
+        )
+    else:
+        return _run_update_singlestep(
+            system, solver, dt, T0, Tf, t_relax, true0, nudged0, method
+        )
+
+
+def _run_update_singlestep(
+    system: base.System,
+    solver: simulator.Solver,
+    dt: float,
+    T0: float,
+    Tf: float,
+    t_relax: float,
+    true0: jndarray,
+    nudged0: jndarray,
+    method: Callable[
+        [base.System, jndarray, jndarray], jndarray
+    ] = base.levenberg_marquardt,
+) -> tuple[jndarray, np.ndarray, np.ndarray]:
+    assert not isinstance(solver, simulator.MultistepSolver)
+
     cs = [system.cs]
     errors = []
 
@@ -96,59 +123,19 @@ def run_update(
     return jnp.stack(cs), errors, tls
 
 
-def run_update_multistep(
+def _run_update_multistep(
     system: base.System,
-    solver: MultistepSolver,
+    solver: simulator.MultistepSolver,
     dt: float,
     T0: float,
     Tf: float,
     t_relax: float,
     true0: jndarray,
     nudged0: jndarray,
-    method: Callable[[jndarray, jndarray], jndarray] = base.levenberg_marquardt,
+    method: Callable[
+        [base.System, jndarray, jndarray], jndarray
+    ] = base.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
-    """Run `system` and update parameter values with `method`, and return
-    sequence of parameter values and errors between nudged and true states.
-
-    Parameters
-    ----------
-    system
-        The system to simulate
-    solver
-        An instance of `RK4` to simulate `system`
-    dt
-        The step size to use in `solver`
-    T0
-        The initial time at which to begin simulation
-    Tf
-        The (approximate) final time for simulation. This function will use as
-        many multiples of `dt` as possible without simulating longer than `Tf`.
-    t_relax
-        The (approximate) length of time to simulate system between parameter
-        updates. This function will use as many multiples of `dt` as possible
-        without simulating longer than `t_relax` between parameter updates.
-    true0
-        The initial state of the true system
-    nudged0
-        The initial state of the nudged system
-    method
-        The method to use to perform parameter udpates.
-
-    Returns
-    -------
-    cs
-        The sequence of parameter values
-        shape (N + 1, d) where d is the number of parameters being estimated and
-            N is the number of parameter updates performed (the first row is the
-            initial set of parameter values).
-    errors
-        The sequence of errors between the true and nudged systems
-        shape (N,) where N is the number of parameter updates performed
-    tls
-        The actual linspace of time values used, in multiples of `t_relax` from
-        `T0` to approximately `Tf`
-        shape (N + 1,) where N is the number of parameter updates performed
-    """
     cs = [system.cs]
     errors = []
 
