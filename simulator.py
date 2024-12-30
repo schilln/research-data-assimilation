@@ -127,7 +127,8 @@ class RK4(Solver):
             1, len(true), self.step, ((true, nudged), (dt, self.system.cs))
         )
 
-        return true, nudged
+        # Don't return the initial state.
+        return true[1:], nudged[1:]
 
     def _step_factory(self):
         def step(i, vals):
@@ -161,6 +162,111 @@ class RK4(Solver):
 
             true = true.at[i].set(t)
             nudged = nudged.at[i].set(n)
+
+            return (true, nudged), (dt, cs)
+
+        return step
+
+
+class MultistepSolver(Solver):
+    def __init__(self, system: System, pre_multistep_solver: Solver, k: int):
+        """
+
+        Parameters
+        ----------
+        pre_multistep_solver
+            An instantiated `Solver` to use until enough steps have been taken to use the
+            multistep solver
+        k
+            The number of steps used in this multistep solver
+        """
+        super().__init__(system)
+        self._k = k
+
+        self._pre_multistep_solver = pre_multistep_solver
+
+    def solve(
+        self,
+        true0: jndarray,
+        nudged0: jndarray,
+        t0: float,
+        tf: float,
+        dt: float,
+        start_with_multistep: bool = False,
+    ) -> tuple[jndarray, jndarray]:
+        """
+
+        If `start_with_multistep` is True, then `true0` and `nudged0` should
+        have shape (k, ...) where k is the number of steps used in the multistep
+        solver, and the remaining dimensions are as usual (i.e., contain the
+        state at one step).
+        """
+
+        # Don't have enough steps to use multistep solver, so use some other
+        # solver to start.
+        if not start_with_multistep:
+            true, nudged = self._init_solve(true0, nudged0, t0, tf, dt)
+
+            # Need k-1 previous steps to use k-step solver.
+            # Note upper bound is exclusive, so the span is really
+            # [t0, t0 + dt, ..., t0 + dt * (k-1)], for a total of k steps.
+            true0, nudged0 = self._pre_multistep_solver.solve(
+                true0, nudged0, t0, t0 + dt * self.k, dt
+            )
+
+            true = true.at[1 : self.k].set(true0)
+            nudged = nudged.at[1 : self.k].set(nudged0)
+
+            (true, nudged), _ = lax.fori_loop(
+                self.k,
+                len(true),
+                self.step,
+                ((true, nudged), (dt, self.system.cs)),
+            )
+
+            # Don't return the initial state.
+            return true[1:], nudged[1:]
+        else:
+            true, nudged = self._init_solve(true0[0], nudged0[0], t0, tf, dt)
+            true = true.at[1 : self.k].set(true0[1:])
+            nudged = nudged.at[1 : self.k].set(nudged0[1:])
+
+            (true, nudged), _ = lax.fori_loop(
+                self.k,
+                len(true),
+                self.step,
+                ((true, nudged), (dt, self.system.cs)),
+            )
+
+            # Don't return the k initial states.
+            return true[self.k :], nudged[self.k :]
+
+    # The following attribute is read-only.
+    k = property(lambda self: self._k)
+
+
+class TwoStepAdamsBashforth(MultistepSolver):
+    def __init__(self, system: System, pre_multistep_solver: Solver):
+        super().__init__(system, pre_multistep_solver, 2)
+
+    def _step_factory(self):
+        def step(i, vals):
+            """This function will be jitted."""
+
+            f = self.system.f
+
+            (true, nudged), (dt, cs) = vals
+            t2, n2 = true[i - 2], nudged[i - 2]
+            t1, n1 = true[i - 1], nudged[i - 1]
+
+            tmp2 = f(cs, t2, n2)
+            tmp1 = f(cs, t1, n1)
+
+            t1 = t1.at[:].add(3 / 2 * dt * tmp1[0] - 1 / 2 * dt * tmp2[0])
+            n1 = n1.at[:].add(3 / 2 * dt * tmp1[1] - 1 / 2 * dt * tmp2[1])
+
+            true = true.at[i].set(t1)
+            nudged = nudged.at[i].set(n1)
 
             return (true, nudged), (dt, cs)
 
