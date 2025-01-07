@@ -15,8 +15,8 @@ class System:
     def __init__(
         self,
         μ: float,
-        bs: jndarray,
         γs: jndarray,
+        bs: jndarray,
         cs: jndarray,
         observed_slice: slice,
     ):
@@ -29,14 +29,14 @@ class System:
         ----------
         μ
             Nudging parameter
-        bs
-            Known parameter values of the "true" system, to be used by the
-            nudged system as well
         γs
-            Unknown parameter values to be used by the "true" system
+            Parameter values to be used by the "true" system
+        bs
+            Fixed parameter values to be used by the nudged system but not to be
+            updated (i.e., not to be estimated nor optimized)
         cs
-            Estimated parameter values to be used by the nudged system (may or
-            may not correspond to `γs`)
+            Estimated parameter values to be used by the nudged system, to be
+            estimated/optimized (may or may not correspond to `γs`)
         observed_slice
             The slice denoting the observed part of the true and nudged system
             states when nudging in `f`. May use `jnp.s_` to define slice to use.
@@ -65,8 +65,8 @@ class System:
             state and the current estimate of its parameters.
         """
         self._μ = μ
-        self._bs = bs
         self._γs = γs
+        self._bs = bs
         self._observed_slice = observed_slice
 
         self.cs = cs
@@ -180,6 +180,6 @@ class System:
 
     # The following attributes are read-only.
     μ = property(lambda self: self._μ)
-    bs = property(lambda self: self._bs)
     γs = property(lambda self: self._γs)
+    bs = property(lambda self: self._bs)
     observed_slice = property(lambda self: self._observed_slice)

@@ -10,16 +10,6 @@ jndarray = jnp.ndarray
 
 
 class L63(System):
-    def __init__(
-        self,
-        μ: float,
-        bs: jndarray,
-        γs: jndarray,
-        cs: jndarray,
-        observed_slice: slice,
-    ):
-        super().__init__(μ, bs, γs, cs, observed_slice)
-
     def ode(self, true: jndarray) -> jndarray:
         σ, ρ, β = self.γs
 
