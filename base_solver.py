@@ -39,6 +39,7 @@ class Solver:
         See the docstring of the abstract `step` function defined in
         `base_solver.Solver`.
         """
+
         def step(i, vals):
             """Given the current state of the true and nudged systems and the
             estimated parameters for the nudged system, compute the next state
@@ -147,12 +148,33 @@ class Solver:
 
 
 class SinglestepSolver(Solver):
-    pass
+    """Abstract base class for non-multistep solvers (e.g., multistage solvers
+    such as 4th-order Runge–Kutta)."""
+
+    def solve(
+        self,
+        true0: jndarray,
+        nudged0: jndarray,
+        t0: float,
+        tf: float,
+        dt: float,
+    ) -> tuple[jndarray, jndarray]:
+        true, nudged = self._init_solve(true0, nudged0, t0, tf, dt)
+
+        (true, nudged), _ = lax.fori_loop(
+            1, len(true), self.step, ((true, nudged), (dt, self.system.cs))
+        )
+
+        # Don't return the initial state.
+        return true[1:], nudged[1:]
 
 
 class MultistepSolver(Solver):
     def __init__(self, system: System, pre_multistep_solver: Solver, k: int):
-        """See documentation of `Solver`.
+        """Abstract base class for multistep solvers (e.g., two-step
+        Adams–Bashforth).
+
+        See documentation of `Solver`.
 
         Parameters
         ----------
