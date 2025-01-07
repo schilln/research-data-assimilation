@@ -6,7 +6,7 @@ from collections.abc import Callable
 
 from jax import numpy as jnp, lax
 
-from base import System
+from base_system import System
 
 jndarray = jnp.ndarray
 

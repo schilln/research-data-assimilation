@@ -8,14 +8,14 @@ from collections.abc import Callable
 import numpy as np
 from jax import numpy as jnp
 
-import base
+import base_system
 import simulator
 
 jndarray = jnp.ndarray
 
 
 def run_update(
-    system: base.System,
+    system: base_system.System,
     solver: simulator.Solver,
     dt: float,
     T0: float,
@@ -24,8 +24,8 @@ def run_update(
     true0: jndarray,
     nudged0: jndarray,
     method: Callable[
-        [base.System, jndarray, jndarray], jndarray
-    ] = base.levenberg_marquardt,
+        [base_system.System, jndarray, jndarray], jndarray
+    ] = base_system.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Use `solver` to run `system` and update parameter values with `method`,
     and return sequence of parameter values and errors between nudged and true
@@ -87,7 +87,7 @@ def run_update(
 
 
 def _run_update_singlestep(
-    system: base.System,
+    system: base_system.System,
     solver: simulator.SinglestepSolver,
     dt: float,
     T0: float,
@@ -96,8 +96,8 @@ def _run_update_singlestep(
     true0: jndarray,
     nudged0: jndarray,
     method: Callable[
-        [base.System, jndarray, jndarray], jndarray
-    ] = base.levenberg_marquardt,
+        [base_system.System, jndarray, jndarray], jndarray
+    ] = base_system.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Implementation of `run_update` for non-multistep solvers (e.g., RK4),
     here referred to as 'singlestep' solvers. See documentation of `run_update`.
@@ -134,7 +134,7 @@ def _run_update_singlestep(
 
 
 def _run_update_multistep(
-    system: base.System,
+    system: base_system.System,
     solver: simulator.MultistepSolver,
     dt: float,
     T0: float,
@@ -143,8 +143,8 @@ def _run_update_multistep(
     true0: jndarray,
     nudged0: jndarray,
     method: Callable[
-        [base.System, jndarray, jndarray], jndarray
-    ] = base.levenberg_marquardt,
+        [base_system.System, jndarray, jndarray], jndarray
+    ] = base_system.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Implementation of `run_update` for multistep solvers (e.g.,
     Adams–Bashforth). See documentation of `run_update`.
