@@ -11,19 +11,19 @@ jndarray = jnp.ndarray
 
 class L63(System):
     def ode(self, true: jndarray) -> jndarray:
-        σ, ρ, β = self.γs
+        sigma, rho, beta = self.gs
 
         x, y, z = true
 
-        return jnp.array([σ * (y - x), x * (ρ - z) - y, x * y - β * z])
+        return jnp.array([sigma * (y - x), x * (rho - z) - y, x * y - beta * z])
 
     def estimated_ode(
         self,
         cs: jndarray,
         nudged: jndarray,
     ) -> tuple[jndarray, jndarray]:
-        σ, ρ, β = cs
+        sigma, rho, beta = cs
 
         x, y, z = nudged
 
-        return jnp.array([σ * (y - x), x * (ρ - z) - y, x * y - β * z])
+        return jnp.array([sigma * (y - x), x * (rho - z) - y, x * y - beta * z])
