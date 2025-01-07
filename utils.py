@@ -10,6 +10,7 @@ from jax import numpy as jnp
 
 import base_system
 import base_solver
+import base_optim
 
 jndarray = jnp.ndarray
 
@@ -25,7 +26,7 @@ def run_update(
     nudged0: jndarray,
     method: Callable[
         [base_system.System, jndarray, jndarray], jndarray
-    ] = base_system.levenberg_marquardt,
+    ] = base_optim.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Use `solver` to run `system` and update parameter values with `method`,
     and return sequence of parameter values and errors between nudged and true
@@ -97,7 +98,7 @@ def _run_update_singlestep(
     nudged0: jndarray,
     method: Callable[
         [base_system.System, jndarray, jndarray], jndarray
-    ] = base_system.levenberg_marquardt,
+    ] = base_optim.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Implementation of `run_update` for non-multistep solvers (e.g., RK4),
     here referred to as 'singlestep' solvers. See documentation of `run_update`.
@@ -144,7 +145,7 @@ def _run_update_multistep(
     nudged0: jndarray,
     method: Callable[
         [base_system.System, jndarray, jndarray], jndarray
-    ] = base_system.levenberg_marquardt,
+    ] = base_optim.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Implementation of `run_update` for multistep solvers (e.g.,
     Adams–Bashforth). See documentation of `run_update`.
