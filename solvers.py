@@ -37,8 +37,6 @@ class RK4(SinglestepSolver):
 
     def _step_factory(self):
         def step(i, vals):
-            """This function will be jitted."""
-
             f = self.system.f
 
             (true, nudged), (dt, cs) = vals
@@ -81,13 +79,10 @@ class TwoStepAdamsBashforth(MultistepSolver):
 
         See https://en.wikipedia.org/wiki/Linear_multistep_method#Two-step_Adams%E2%80%93Bashforth
         """
-
         super().__init__(system, pre_multistep_solver, 2)
 
     def _step_factory(self):
         def step(i, vals):
-            """This function will be jitted."""
-
             f = self.system.f
 
             (true, nudged), (dt, cs) = vals

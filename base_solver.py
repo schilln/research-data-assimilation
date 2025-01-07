@@ -11,21 +11,48 @@ jndarray = jnp.ndarray
 
 class Solver:
     def __init__(self, system: System):
-        """Base class for solving true and nudged system together."""
+        """Base class for solving true and nudged system together.
 
+        Parameters
+        ----------
+        system
+            An instance of `base_system.System` to simulate forward in time.
+
+        Methods
+        -------
+        solve
+            Simulate `self.system` forward in time.
+
+        Abstract methods
+        ----------------
+        These must be overridden by subclasses.
+
+        _step_factory
+            A method that returns the `step` function to be used in `solve`.
+        """
         self._system = system
         self._step = self._step_factory()
 
     def _step_factory(self) -> Callable:
-        """Define a step function to be used in `solve`.
+        """Define the `step` function to be used in `solve`.
 
-        Note `step` will be jitted, so only its parameters `i` and `vals` may be
-        updated. Other values (such as accessing `system.ode`) will maintain
-        the value used when `step` is first called.
+        See the docstring of the abstract `step` function defined in
+        `base_solver.Solver`.
         """
-
         def step(i, vals):
-            """This function will be jitted."""
+            """Given the current state of the true and nudged systems and the
+            estimated parameters for the nudged system, compute the next state
+            using `self.system.f`.
+
+            This function will be jitted, and in particular it will be used as
+            the `body_fun` parameter of `lax.fori_loop`, so it must conform to
+            that interface. See
+            https://jax.readthedocs.io/en/latest/_autosummary/jax.lax.fori_loop.html
+
+            Being jitted, only its parameters `i` and `vals` may be updated.
+            Other values (such as accessing `system.ode`) will maintain the
+            value used when `step` is first called (and thus compiled).
+            """
             raise NotImplementedError()
 
         return step
@@ -50,8 +77,14 @@ class Solver:
             Initial and (approximate) final times over which to simulate
         dt
             Simulation step size
-        """
 
+        Returns
+        -------
+        true
+            An array in which to store true values computed in `solve`
+        nudged
+            An array in which to store nudged values computed in `solve`
+        """
         tls = jnp.arange(t0, tf, dt)
         N = len(tls)
 
@@ -99,6 +132,12 @@ class Solver:
             Initial and (approximate) final times over which to simulate
         dt
             Simulation step size
+
+        Returns
+        -------
+        true, nudged
+            The computed true and nudged states from `t0` to (approximately)
+            `tf`, excluding the initial states passed to `true0` and `nudged0`.
         """
         raise NotImplementedError()
 
@@ -137,14 +176,13 @@ class MultistepSolver(Solver):
         dt: float,
         start_with_multistep: bool = False,
     ) -> tuple[jndarray, jndarray]:
-        """
+        """See documentation for `Solver`.
 
         If `start_with_multistep` is True, then `true0` and `nudged0` should
         have shape (k, ...) where k is the number of steps used in the multistep
         solver, and the remaining dimensions are as usual (i.e., contain the
         state at one step).
         """
-
         # Don't have enough steps to use multistep solver, so use some other
         # solver to start.
         if not start_with_multistep:

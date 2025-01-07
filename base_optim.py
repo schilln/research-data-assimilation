@@ -1,5 +1,5 @@
-"""Gradient-based methods to estimate optimal parameters for an instance of
-base_system.System."""
+"""Gradient-based methods to estimate optimal parameters for the nudged system
+in an instance of `base_system.System`."""
 
 from jax import numpy as jnp
 
@@ -14,7 +14,9 @@ def gradient_descent(
     nudged: jndarray,
     r: float = 1e-4,
 ):
-    """
+    """Compute one step of gradient descent to obtain optimal parameters for the
+    nudged system in `system`.
+
     Parameters
     ----------
     observed_true
@@ -29,7 +31,6 @@ def gradient_descent(
     new_cs
         New parameter values cs
     """
-
     diff = nudged[system.observed_slice].ravel() - observed_true.ravel()
     gradient = diff @ system.compute_w(nudged).T
 
@@ -43,7 +44,9 @@ def levenberg_marquardt(
     r: float = 1e-3,
     λ: float = 1e-2,
 ):
-    """
+    """Compute one step of Levenberg–Marquardt to obtain optimal parameters for
+    thenudged system in `system`.
+
     Parameters
     ----------
     observed_true

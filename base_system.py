@@ -40,6 +40,29 @@ class System:
         observed_slice
             The slice denoting the observed part of the true and nudged system
             states when nudging in `f`. May use `jnp.s_` to define slice to use.
+            To observed the entire system, use `jnp.s_[:]`.
+
+        Methods
+        -------
+        f
+            Computes the time derivative the true and nudged system, given the
+            current states of each and the current estimated parameters for the
+            nudged system.
+        compute_w
+            Computes the leading-order approximation of the sensitivity
+            equations.
+            May be overridden (see docstring).
+
+        Abstract methods
+        ----------------
+        These must be overridden by subclasses.
+
+        ode
+            Computes the time derivative of the true system, given its current
+            state.
+        estimated_ode
+            Computes the time derivative of the nudged system, given its current
+            state and the current estimate of its parameters.
         """
         self._μ = μ
         self._bs = bs
@@ -54,7 +77,9 @@ class System:
         true: jndarray,
         nudged: jndarray,
     ) -> tuple[jndarray, jndarray]:
-        """
+        """Computes the time derivative of `true` and `nudged` using `ode` and
+        `estimated_ode` followed by nudging the nudged system using the observed
+        portion of `true`.
 
         This function will be jitted.
 
@@ -83,7 +108,9 @@ class System:
         self,
         true: jndarray,
     ) -> jndarray:
-        """
+        """Computes the time derivative of `true`.
+        This method should be overridden according to the desired differential
+        equation.
 
         This function will be jitted.
 
@@ -104,7 +131,10 @@ class System:
         cs: jndarray,
         nudged: jndarray,
     ) -> jndarray:
-        """
+        """Computes the time derivative of `nudged`, using the current estimated
+        parameters `cs`.
+        This method should be overridden according to the desired differential
+        equation.
 
         This function will be jitted.
 
@@ -127,9 +157,6 @@ class System:
 
         Subclasses may override this method to optimize computation or to obtain
         higher-order approximations.
-
-        Note this differs from Josh's paper, equation (2.23), by a negative
-        sign.
 
         Parameters
         ----------
