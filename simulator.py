@@ -109,7 +109,11 @@ class Solver:
     step = property(lambda self: self._step)
 
 
-class RK4(Solver):
+class SinglestepSolver(Solver):
+    pass
+
+
+class RK4(SinglestepSolver):
     def __init__(self, system: System):
         super().__init__(system)
 
@@ -170,13 +174,13 @@ class RK4(Solver):
 
 class MultistepSolver(Solver):
     def __init__(self, system: System, pre_multistep_solver: Solver, k: int):
-        """
+        """See documentation of `simulator.Solver`.
 
         Parameters
         ----------
         pre_multistep_solver
-            An instantiated `Solver` to use until enough steps have been taken to use the
-            multistep solver
+            An instantiated `Solver` to use until enough steps have been taken
+            to use the multistep solver
         k
             The number of steps used in this multistep solver
         """

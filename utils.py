@@ -27,8 +27,9 @@ def run_update(
         [base.System, jndarray, jndarray], jndarray
     ] = base.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
-    """Run `system` and update parameter values with `method`, and return
-    sequence of parameter values and errors between nudged and true states.
+    """Use `solver` to run `system` and update parameter values with `method`,
+    and return sequence of parameter values and errors between nudged and true
+    states.
 
     Parameters
     ----------
@@ -70,19 +71,24 @@ def run_update(
         shape (N + 1,) where N is the number of parameter updates performed
     """
 
-    if isinstance(solver, simulator.MultistepSolver):
+    if isinstance(solver, simulator.SinglestepSolver):
+        return _run_update_singlestep(
+            system, solver, dt, T0, Tf, t_relax, true0, nudged0, method
+        )
+    elif isinstance(solver, simulator.MultistepSolver):
         return _run_update_multistep(
             system, solver, dt, T0, Tf, t_relax, true0, nudged0, method
         )
     else:
-        return _run_update_singlestep(
-            system, solver, dt, T0, Tf, t_relax, true0, nudged0, method
+        raise NotImplementedError(
+            "`solver` should be instance of `simulator.SinglestepSolver` or "
+            "`simulator.MultistepSolver`"
         )
 
 
 def _run_update_singlestep(
     system: base.System,
-    solver: simulator.Solver,
+    solver: simulator.SinglestepSolver,
     dt: float,
     T0: float,
     Tf: float,
@@ -93,7 +99,11 @@ def _run_update_singlestep(
         [base.System, jndarray, jndarray], jndarray
     ] = base.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
-    assert not isinstance(solver, simulator.MultistepSolver)
+    """Implementation of `run_update` for non-multistep solvers (e.g., RK4),
+    here referred to as 'singlestep' solvers. See documentation of `run_update`.
+    """
+
+    assert isinstance(solver, simulator.SinglestepSolver)
 
     cs = [system.cs]
     errors = []
@@ -136,6 +146,10 @@ def _run_update_multistep(
         [base.System, jndarray, jndarray], jndarray
     ] = base.levenberg_marquardt,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
+    """Implementation of `run_update` for multistep solvers (e.g.,
+    Adams–Bashforth). See documentation of `run_update`.
+    """
+
     cs = [system.cs]
     errors = []
 
