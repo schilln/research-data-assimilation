@@ -9,14 +9,14 @@ import numpy as np
 from jax import numpy as jnp
 
 import base_system
-import simulator
+import base_solver
 
 jndarray = jnp.ndarray
 
 
 def run_update(
     system: base_system.System,
-    solver: simulator.Solver,
+    solver: base_solver.Solver,
     dt: float,
     T0: float,
     Tf: float,
@@ -36,7 +36,7 @@ def run_update(
     system
         The system to simulate
     solver
-        An instance of `simulator.Solver` to simulate `system`
+        An instance of `base_solver.Solver` to simulate `system`
     dt
         The step size to use in `solver`
     T0
@@ -71,24 +71,24 @@ def run_update(
         shape (N + 1,) where N is the number of parameter updates performed
     """
 
-    if isinstance(solver, simulator.SinglestepSolver):
+    if isinstance(solver, base_solver.SinglestepSolver):
         return _run_update_singlestep(
             system, solver, dt, T0, Tf, t_relax, true0, nudged0, method
         )
-    elif isinstance(solver, simulator.MultistepSolver):
+    elif isinstance(solver, base_solver.MultistepSolver):
         return _run_update_multistep(
             system, solver, dt, T0, Tf, t_relax, true0, nudged0, method
         )
     else:
         raise NotImplementedError(
-            "`solver` should be instance of `simulator.SinglestepSolver` or "
-            "`simulator.MultistepSolver`"
+            "`solver` should be instance of subclass of "
+            "`base_solver.SinglestepSolver` or `base_solver.MultistepSolver`"
         )
 
 
 def _run_update_singlestep(
     system: base_system.System,
-    solver: simulator.SinglestepSolver,
+    solver: base_solver.SinglestepSolver,
     dt: float,
     T0: float,
     Tf: float,
@@ -103,7 +103,7 @@ def _run_update_singlestep(
     here referred to as 'singlestep' solvers. See documentation of `run_update`.
     """
 
-    assert isinstance(solver, simulator.SinglestepSolver)
+    assert isinstance(solver, base_solver.SinglestepSolver)
 
     cs = [system.cs]
     errors = []
@@ -135,7 +135,7 @@ def _run_update_singlestep(
 
 def _run_update_multistep(
     system: base_system.System,
-    solver: simulator.MultistepSolver,
+    solver: base_solver.MultistepSolver,
     dt: float,
     T0: float,
     Tf: float,

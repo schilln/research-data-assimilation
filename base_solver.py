@@ -174,7 +174,7 @@ class RK4(SinglestepSolver):
 
 class MultistepSolver(Solver):
     def __init__(self, system: System, pre_multistep_solver: Solver, k: int):
-        """See documentation of `simulator.Solver`.
+        """See documentation of `Solver`.
 
         Parameters
         ----------
