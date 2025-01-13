@@ -25,7 +25,6 @@ class Solver:
         """
 
         def step(i, vals):
-            """This function will be jitted."""
             raise NotImplementedError()
 
         return step
@@ -50,6 +49,17 @@ class Solver:
             Initial and (approximate) final times over which to simulate
         dt
             Simulation step size
+
+        Returns
+        -------
+        true
+            Array initialized with inf with the shape to hold N steps of the
+            true state
+            shape (N, *true0.shape)
+        nudged
+            Array initialized with inf with the shape to hold N steps of the
+            nudged state
+            shape (N, *nudged0.shape)
         """
 
         tls = jnp.arange(t0, tf, dt)
@@ -99,6 +109,12 @@ class Solver:
             Initial and (approximate) final times over which to simulate
         dt
             Simulation step size
+
+        Returns
+        -------
+        true, nudged
+            The true and nudged states, excluding the initial state(s) `true0`
+            and `nudged0`
         """
         raise NotImplementedError()
 
