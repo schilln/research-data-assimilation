@@ -108,7 +108,22 @@ class Solver:
 
 
 class SinglestepSolver(Solver):
-    pass
+    def solve(
+        self,
+        true0: jndarray,
+        nudged0: jndarray,
+        t0: float,
+        tf: float,
+        dt: float,
+    ) -> tuple[jndarray, jndarray]:
+        true, nudged = self._init_solve(true0, nudged0, t0, tf, dt)
+
+        (true, nudged), _ = lax.fori_loop(
+            1, len(true), self.step, ((true, nudged), (dt, self.system.cs))
+        )
+
+        # Don't return the initial state.
+        return true[1:], nudged[1:]
 
 
 class MultistepSolver(Solver):

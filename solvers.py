@@ -1,6 +1,6 @@
 """Concrete implementations of `base_solver.Solver`."""
 
-from jax import numpy as jnp, lax
+from jax import numpy as jnp
 
 from base_system import System
 from base_solver import Solver, SinglestepSolver, MultistepSolver
@@ -17,23 +17,6 @@ class RK4(SinglestepSolver):
         See https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
         """
         super().__init__(system)
-
-    def solve(
-        self,
-        true0: jndarray,
-        nudged0: jndarray,
-        t0: float,
-        tf: float,
-        dt: float,
-    ) -> tuple[jndarray, jndarray]:
-        true, nudged = self._init_solve(true0, nudged0, t0, tf, dt)
-
-        (true, nudged), _ = lax.fori_loop(
-            1, len(true), self.step, ((true, nudged), (dt, self.system.cs))
-        )
-
-        # Don't return the initial state.
-        return true[1:], nudged[1:]
 
     def _step_factory(self):
         def step(i, vals):
