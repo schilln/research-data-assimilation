@@ -3,7 +3,7 @@
 from jax import numpy as jnp
 
 from separate_base_system import System
-from separate_base_solve import Solver, SinglestepSolver, MultistepSolver
+from separate_base_solver import Solver, SinglestepSolver, MultistepSolver
 
 jndarray = jnp.ndarray
 
