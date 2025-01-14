@@ -9,7 +9,7 @@ import numpy as np
 from jax import numpy as jnp
 
 import separate_base_system
-from separate_base_solver import Solver, SinglestepSolver, MultistepSolver
+from separate_base_solver import Solver, MultistepSolver
 import base_optim
 
 jndarray = jnp.ndarray
@@ -80,40 +80,43 @@ def run_update(
     true_args = dict()
     nudged_args = dict()
 
-    if isinstance(true_solver, SinglestepSolver):
-        true_k = true_solver.k
+    if isinstance(true_solver, MultistepSolver):
         true_args["start_with_multistep"] = True
+        get_true0 = lambda true: true[-true_solver.k :]
     else:
-        nudged_k = 1
+        get_true0 = lambda true: true[-1]
 
     if isinstance(nudged_solver, MultistepSolver):
-        nudged_k = nudged_solver.k
         nudged_args["start_with_multistep"] = True
+        get_nudged0 = lambda nudged: nudged[-nudged_solver.k :]
     else:
-        true_k = 1
+        get_nudged0 = lambda nudged: nudged[-1]
 
     t0 = T0
     tf = t0 + t_relax
 
-    true = true_solver.solve_true(true0, t0, tf, dt)
-    nudged = nudged_solver.solve_nudged(nudged0, t0, tf, dt)
+    true, tls = true_solver.solve_true(true0, t0, tf, dt)
+    nudged, _ = nudged_solver.solve_nudged(
+        nudged0, t0, tf, dt, true[:, system.observed_slice]
+    )
 
-    true0 = true[-true_k:]
-    nudged0 = nudged[-nudged_k:]
+    # Note: If k is -1, the extra first dimension is not eliminated.
+    true0 = get_true0(true)
+    nudged0 = get_nudged0(nudged)
 
     # Update parameters
-    system.cs = method(system, true0[system.observed_slice], nudged0)
+    system.cs = method(system, true[-1][system.observed_slice], nudged[-1])
     cs.append(system.cs)
 
-    t0 = tf
+    t0 = tls[-1]
     tf = t0 + t_relax
 
     # Relative error
     errors.append(np.linalg.norm(true - nudged) / np.linalg.norm(true))
 
     while tf <= Tf:
-        true = true_solver.solve_true(true0, t0, tf, dt, **true_args)
-        nudged = nudged_solver.solve_nudged(
+        true, tls = true_solver.solve_true(true0, t0, tf, dt, **true_args)
+        nudged, tls = nudged_solver.solve_nudged(
             nudged0,
             t0,
             tf,
@@ -122,17 +125,22 @@ def run_update(
             **nudged_args,
         )
 
-        true0 = true[-true_k:]
-        nudged0 = nudged[-nudged_k:]
+        true0 = get_true0(true)
+        nudged0 = get_nudged0(nudged)
 
         # Update parameters
-        system.cs = method(
-            system, true0[-1][system.observed_slice], nudged0[-1]
-        )
+        system.cs = method(system, true[-1][system.observed_slice], nudged[-1])
         cs.append(system.cs)
 
-        t0 = tf
+        t0 = tls[-1]
         tf = t0 + t_relax
 
         # Relative error
         errors.append(np.linalg.norm(true - nudged) / np.linalg.norm(true))
+
+    errors = np.array(errors)
+
+    # Note the last `t0` is the actual final time of the simulation.
+    tls = np.linspace(T0, t0, len(errors) + 1)
+
+    return jnp.stack(cs), errors, tls

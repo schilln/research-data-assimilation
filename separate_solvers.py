@@ -55,12 +55,12 @@ class ForwardEuler(SinglestepSolver):
             f = self.system.f_true
 
             true, (dt,) = vals
-            t = true.at[i - 1]
+            t = true[i - 1]
 
             # TODO: Optimize this.
             t = t.at[:].add(dt * f(t))
 
-            true = true.at[i - 1].set(t)
+            true = true.at[i].set(t)
 
             return true, (dt,)
 
@@ -68,12 +68,13 @@ class ForwardEuler(SinglestepSolver):
             f = self.system.f_nudged
 
             nudged, (dt, cs, true_observed) = vals
-            n = nudged.at[i - 1]
+            t = true_observed[i - 1]
+            n = nudged[i - 1]
 
             # TODO: Optimize this.
-            n = n.at[:].add(dt * f(n, true_observed))
+            n = n.at[:].add(dt * f(cs, t, n))
 
-            nudged = nudged.at[i - 1].set(n)
+            nudged = nudged.at[i].set(n)
 
             return nudged, (dt, cs, true_observed)
 

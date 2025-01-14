@@ -99,8 +99,11 @@ class Solver:
             Array initialized with inf with the shape to hold N steps of the
             system state
             shape (N, *state0.shape)
+        tls
+            The time linspace
         """
-        tls = jnp.arange(t0, tf, dt)
+        # `arange` doesn't like floating point values.
+        tls = t0 + jnp.arange(round((tf - t0) / dt)) * dt
         N = len(tls)
 
         # Store the solution at every step.
@@ -109,7 +112,7 @@ class Solver:
         # Set initial state.
         state = state.at[0].set(state0)
 
-        return state
+        return state, tls
 
     def solve_true(
         self,
@@ -117,7 +120,7 @@ class Solver:
         t0: float,
         tf: float,
         dt: float,
-    ) -> jndarray:
+    ) -> tuple[jndarray, jndarray]:
         """Simulate true state of `self.system` from `t0` to `tf` using step
         size `dt`.
 
@@ -147,6 +150,8 @@ class Solver:
         true
             The computed true states from `t0` to (approximately) `tf`,
             excluding the initial states `true0`
+        tls
+            The time linspace
         """
         raise NotImplementedError()
 
@@ -157,7 +162,7 @@ class Solver:
         tf: float,
         dt: float,
         true_observed: jndarray,
-    ) -> jndarray:
+    ) -> tuple[jndarray, jndarray]:
         """Simulate nudged state of `self.system` from `t0` to `tf` using step
         size `dt`.
 
@@ -194,6 +199,8 @@ class Solver:
         nudged
             The computed nudged states from `t0` to (approximately)
             `tf`, excluding the initial states `nudged0`
+        tls
+            The time linspace
         """
         raise NotImplementedError()
 
@@ -213,13 +220,13 @@ class SinglestepSolver(Solver):
         t0: float,
         tf: float,
         dt: float,
-    ) -> jndarray:
-        true = self._init_solve(true0, t0, tf, dt)
+    ) -> tuple[jndarray, jndarray]:
+        true, tls = self._init_solve(true0, t0, tf, dt)
 
         true, _ = lax.fori_loop(1, len(true), self.step_true, (true, (dt,)))
 
         # Don't return the initial state.
-        return true[1:]
+        return true[1:], tls[1:]
 
     def solve_nudged(
         self,
@@ -228,8 +235,8 @@ class SinglestepSolver(Solver):
         tf: float,
         dt: float,
         true_observed: jndarray,
-    ) -> jndarray:
-        nudged = self._init_solve(nudged0, t0, tf, dt)
+    ) -> tuple[jndarray, jndarray]:
+        nudged, tls = self._init_solve(nudged0, t0, tf, dt)
 
         nudged, _ = lax.fori_loop(
             1,
@@ -239,7 +246,7 @@ class SinglestepSolver(Solver):
         )
 
         # Don't return the initial state.
-        return nudged[1:]
+        return nudged[1:], tls[1:]
 
 
 class MultistepSolver(Solver):
@@ -269,8 +276,11 @@ class MultistepSolver(Solver):
         tf: float,
         dt: float,
         start_with_multistep: bool = False,
-    ) -> jndarray:
+    ) -> tuple[jndarray, jndarray]:
         """See documentation for `Solver`.
+
+        The final entry of `true0` corresponds to `t0`, while preceding entries
+        `true0[-2]`, `true0[-3]`, ... correspond to t0 - dt, t0 - 2*dt, ...
 
         If `start_with_multistep` is True, then `true0` should have shape
         (k, ...) where k is the number of steps used in the multistep solver,
@@ -280,12 +290,12 @@ class MultistepSolver(Solver):
         # Don't have enough steps to use multistep solver, so use some other
         # solver to start.
         if not start_with_multistep:
-            true = self._init_solve(true0, t0, tf, dt)
+            true, tls = self._init_solve(true0, t0, tf, dt)
 
             # Need k-1 previous steps to use k-step solver.
             # Note upper bound is exclusive, so the span is really
             # [t0, t0 + dt, ..., t0 + dt * (k-1)], for a total of k steps.
-            true0 = self._pre_multistep_solver.solve_true(
+            true0, _ = self._pre_multistep_solver.solve_true(
                 true0, t0, t0 + dt * self.k, dt
             )
 
@@ -296,9 +306,11 @@ class MultistepSolver(Solver):
             )
 
             # Don't return the initial state.
-            return true[1:]
+            return true[1:], tls[1:]
         else:
-            true = self._init_solve(true0[0], t0, tf, dt)
+            true, tls = self._init_solve(
+                true0[0], t0 - dt * (self.k - 1), tf, dt
+            )
             true = true.at[1 : self.k].set(true0[1:])
 
             true, _ = lax.fori_loop(
@@ -306,7 +318,7 @@ class MultistepSolver(Solver):
             )
 
             # Don't return the k initial states.
-            return true[self.k :]
+            return true[self.k :], tls[self.k :]
 
     def solve_nudged(
         self,
@@ -316,8 +328,12 @@ class MultistepSolver(Solver):
         dt: float,
         true_observed: jndarray,
         start_with_multistep: bool = False,
-    ) -> jndarray:
+    ) -> tuple[jndarray, jndarray]:
         """See documentation for `Solver`.
+
+        The final entry of `nudged0` corresponds to `t0`, while preceding
+        entries `nudged0[-2]`, `nudged0[-3]`, ... correspond to t0 - dt,
+        t0 - 2*dt, ...
 
         If `start_with_multistep` is True, then `nudged0` should have shape
         (k, ...) where k is the number of steps used in the multistep solver,
@@ -327,16 +343,16 @@ class MultistepSolver(Solver):
         # Don't have enough steps to use multistep solver, so use some other
         # solver to start.
         if not start_with_multistep:
-            nudged = self._init_solve(nudged0, t0, tf, dt)
+            nudged, tls = self._init_solve(nudged0, t0, tf, dt)
 
             # Need k-1 previous steps to use k-step solver.
             # Note upper bound is exclusive, so the span is really
             # [t0, t0 + dt, ..., t0 + dt * (k-1)], for a total of k steps.
-            nudged0 = self._pre_multistep_solver.solve_nudged(
+            nudged0, _ = self._pre_multistep_solver.solve_nudged(
                 nudged0, t0, t0 + dt * self.k, dt, true_observed
             )
 
-            nudged = nudged.at[1 : self.k].set(nudged)
+            nudged = nudged.at[1 : self.k].set(nudged0)
 
             nudged, _ = lax.fori_loop(
                 self.k,
@@ -346,10 +362,12 @@ class MultistepSolver(Solver):
             )
 
             # Don't return the initial state.
-            return nudged[1:]
+            return nudged[1:], tls[1:]
         else:
-            nudged = self._init_solve(nudged0[0], t0, tf, dt)
-            nudged = nudged.at[1 : self.k].set(nudged[1:])
+            nudged, tls = self._init_solve(
+                nudged0[0], t0 - dt * (self.k - 1), tf, dt
+            )
+            nudged = nudged.at[1 : self.k].set(nudged0[1:])
 
             true, _ = lax.fori_loop(
                 self.k,
@@ -359,7 +377,7 @@ class MultistepSolver(Solver):
             )
 
             # Don't return the k initial states.
-            return true[self.k :]
+            return true[self.k :], tls[self.k :]
 
     # The following attribute is read-only.
     k = property(lambda self: self._k)
