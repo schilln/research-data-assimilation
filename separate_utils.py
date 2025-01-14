@@ -82,15 +82,31 @@ def run_update(
 
     if isinstance(true_solver, MultistepSolver):
         true_args["start_with_multistep"] = True
+
+        # Get the initial state for the next iteration.
         get_true0 = lambda true: true[-true_solver.k :]
+
+        # Get true states except for initial states (for error calculation).
+        remove_true0 = lambda true: true[true_solver.k :]
     else:
         get_true0 = lambda true: true[-1]
+        remove_true0 = lambda true: true[1:]
 
     if isinstance(nudged_solver, MultistepSolver):
         nudged_args["start_with_multistep"] = True
         get_nudged0 = lambda nudged: nudged[-nudged_solver.k :]
+        remove_nudged0 = lambda nudged: nudged[nudged_solver.k :]
+
+        # Get true states from the previous iteration.
+        get_prev_true = lambda true: true[-nudged_solver.k :]
+
+        # Stack previous true states with current true states.
+        concat_true = lambda prev_true, true: jnp.concatenate((prev_true, true))
     else:
         get_nudged0 = lambda nudged: nudged[-1]
+        remove_nudged0 = lambda nudged: nudged[1:]
+        get_prev_true = lambda _: None
+        concat_true = lambda _, true: true
 
     t0 = T0
     tf = t0 + t_relax
@@ -112,8 +128,11 @@ def run_update(
     tf = t0 + t_relax
 
     # Relative error
-    errors.append(np.linalg.norm(true - nudged) / np.linalg.norm(true))
+    errors.append(
+        np.linalg.norm(true[1:] - nudged[1:]) / np.linalg.norm(true[1:])
+    )
 
+    prev_true = get_prev_true(true)
     while tf <= Tf:
         true, tls = true_solver.solve_true(true0, t0, tf, dt, **true_args)
         nudged, tls = nudged_solver.solve_nudged(
@@ -121,7 +140,7 @@ def run_update(
             t0,
             tf,
             dt,
-            true[:, system.observed_slice],
+            concat_true(prev_true, true)[:, system.observed_slice],
             **nudged_args,
         )
 
@@ -136,7 +155,11 @@ def run_update(
         tf = t0 + t_relax
 
         # Relative error
-        errors.append(np.linalg.norm(true - nudged) / np.linalg.norm(true))
+        errors.append(
+            np.linalg.norm(remove_true0(true) - remove_nudged0(nudged))
+            / np.linalg.norm(remove_true0(true))
+        )
+        prev_true = get_prev_true(true)
 
     errors = np.array(errors)
 

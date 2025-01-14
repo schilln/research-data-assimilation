@@ -225,8 +225,7 @@ class SinglestepSolver(Solver):
 
         true, _ = lax.fori_loop(1, len(true), self.step_true, (true, (dt,)))
 
-        # Don't return the initial state.
-        return true[1:], tls[1:]
+        return true, tls
 
     def solve_nudged(
         self,
@@ -245,8 +244,7 @@ class SinglestepSolver(Solver):
             (nudged, (dt, self.system.cs, true_observed)),
         )
 
-        # Don't return the initial state.
-        return nudged[1:], tls[1:]
+        return nudged, tls
 
 
 class MultistepSolver(Solver):
@@ -299,14 +297,13 @@ class MultistepSolver(Solver):
                 true0, t0, t0 + dt * self.k, dt
             )
 
-            true = true.at[1 : self.k].set(true0)
+            true = true.at[1 : self.k].set(true0[1:])
 
             true, _ = lax.fori_loop(
                 self.k, len(true), self.step_true, (true, (dt,))
             )
 
-            # Don't return the initial state.
-            return true[1:], tls[1:]
+            return true, tls
         else:
             true, tls = self._init_solve(
                 true0[0], t0 - dt * (self.k - 1), tf, dt
@@ -317,8 +314,7 @@ class MultistepSolver(Solver):
                 self.k, len(true), self.step_true, (true, (dt,))
             )
 
-            # Don't return the k initial states.
-            return true[self.k :], tls[self.k :]
+            return true, tls
 
     def solve_nudged(
         self,
@@ -352,7 +348,7 @@ class MultistepSolver(Solver):
                 nudged0, t0, t0 + dt * self.k, dt, true_observed
             )
 
-            nudged = nudged.at[1 : self.k].set(nudged0)
+            nudged = nudged.at[1 : self.k].set(nudged0[1:])
 
             nudged, _ = lax.fori_loop(
                 self.k,
@@ -361,8 +357,7 @@ class MultistepSolver(Solver):
                 (nudged, (dt, self.system.cs, true_observed)),
             )
 
-            # Don't return the initial state.
-            return nudged[1:], tls[1:]
+            return nudged, tls
         else:
             nudged, tls = self._init_solve(
                 nudged0[0], t0 - dt * (self.k - 1), tf, dt
@@ -376,8 +371,7 @@ class MultistepSolver(Solver):
                 (nudged, (dt, self.system.cs, true_observed)),
             )
 
-            # Don't return the k initial states.
-            return true[self.k :], tls[self.k :]
+            return true, tls
 
     # The following attribute is read-only.
     k = property(lambda self: self._k)

@@ -120,8 +120,7 @@ class TwoStepAdamsBashforth(MultistepSolver):
             tmp2 = f(cs, t2, n2)
             tmp1 = f(cs, t1, n1)
 
-            t1 = t1.at[:].add(3 / 2 * dt * tmp1[0] - 1 / 2 * dt * tmp2[0])
-            n1 = n1.at[:].add(3 / 2 * dt * tmp1[1] - 1 / 2 * dt * tmp2[1])
+            n1 = n1.at[:].add(3 / 2 * dt * tmp1 - 1 / 2 * dt * tmp2)
 
             nudged = nudged.at[i].set(n1)
 
