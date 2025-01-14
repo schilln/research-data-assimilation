@@ -17,11 +17,7 @@ class L63(System):
 
         return jnp.array([sigma * (y - x), x * (rho - z) - y, x * y - beta * z])
 
-    def estimated_ode(
-        self,
-        cs: jndarray,
-        nudged: jndarray,
-    ) -> tuple[jndarray, jndarray]:
+    def estimated_ode(self, cs: jndarray, nudged: jndarray) -> jndarray:
         sigma, rho, beta = cs
 
         x, y, z = nudged
