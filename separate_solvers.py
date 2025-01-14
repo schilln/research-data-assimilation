@@ -8,6 +8,40 @@ from separate_base_solver import Solver, SinglestepSolver, MultistepSolver
 jndarray = jnp.ndarray
 
 
+class RK4(SinglestepSolver):
+    """4th-order Runge–Kutta solver.
+
+    See documentation of `base_solver.SinglestepSolver`.
+
+    See https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
+    """
+
+    def _step_factory(self):
+        def step_true(i, vals):
+            f = self.system.f_true
+
+            true, (dt,) = vals
+            t = true[i - 1]
+
+            k1t = f(t)
+            k2t = f(t + dt * k1t / 2)
+            k3t = f(t + dt * k2t / 2)
+            k4t = f(t + dt * k3t)
+
+            # TODO: This can be optimized slightly by replacing the add-then-set
+            # with just an add to true/nudged.
+            t = t.at[:].add((dt / 6) * (k1t + 2 * k2t + 2 * k3t + k4t))
+
+            true = true.at[i].set(t)
+
+            return true, (dt,)
+
+        def step_nudged(i, vals):
+            raise NotImplementedError("Not yet implemented for nudged system.")
+
+        return step_true, step_nudged
+
+
 class ForwardEuler(SinglestepSolver):
     def __init__(self, system: System):
         """Forward Euler solver.
