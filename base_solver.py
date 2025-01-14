@@ -11,7 +11,7 @@ jndarray = jnp.ndarray
 
 class Solver:
     def __init__(self, system: System):
-        """Base class for solving true and nudged system together.
+        """Base class for solving true and nudged systems together.
 
         Parameters
         ----------
@@ -82,11 +82,15 @@ class Solver:
         Returns
         -------
         true
-            An array in which to store true values computed in `solve`
+            Array initialized with inf with the shape to hold N steps of the
+            true state
+            shape (N, *true0.shape)
         nudged
-            An array in which to store nudged values computed in `solve`
+            Array initialized with inf with the shape to hold N steps of the
+            nudged state
+            shape (N, *nudged0.shape)
         """
-        tls = jnp.arange(t0, tf, dt)
+        tls = t0 + jnp.arange(round((tf - t0) / dt)) * dt
         N = len(tls)
 
         # Store the solution at every step.
@@ -138,7 +142,11 @@ class Solver:
         -------
         true, nudged
             The computed true and nudged states from `t0` to (approximately)
-            `tf`, excluding the initial states passed to `true0` and `nudged0`.
+            `tf`, excluding the initial states `true0` and `nudged0`
+        # TODO: This should return the actual final time so that subsequent
+        # iterations can use the true final time.
+        tls
+            
         """
         raise NotImplementedError()
 
@@ -230,6 +238,9 @@ class MultistepSolver(Solver):
             # Don't return the initial state.
             return true[1:], nudged[1:]
         else:
+            # TODO: Should assume true0[-1] is at t0, and the previous entries
+            # are pre-t0. This would make bookkeeping easier from one solve to
+            # the next.
             true, nudged = self._init_solve(true0[0], nudged0[0], t0, tf, dt)
             true = true.at[1 : self.k].set(true0[1:])
             nudged = nudged.at[1 : self.k].set(nudged0[1:])
