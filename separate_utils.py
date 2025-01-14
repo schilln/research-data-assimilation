@@ -9,7 +9,7 @@ import numpy as np
 from jax import numpy as jnp
 
 import separate_base_system
-from separate_base_solve import Solver, SinglestepSolver, MultistepSolver
+from separate_base_solver import Solver, SinglestepSolver, MultistepSolver
 import base_optim
 
 jndarray = jnp.ndarray

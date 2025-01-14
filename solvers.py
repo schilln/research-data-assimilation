@@ -9,14 +9,12 @@ jndarray = jnp.ndarray
 
 
 class RK4(SinglestepSolver):
-    def __init__(self, system: System):
-        """4th-order Runge–Kutta solver.
+    """4th-order Runge–Kutta solver.
 
-        See documentation of `base_solver.SinglestepSolver`.
+    See documentation of `base_solver.SinglestepSolver`.
 
-        See https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
-        """
-        super().__init__(system)
+    See https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
+    """
 
     def _step_factory(self):
         def step(i, vals):
@@ -64,7 +62,6 @@ class TwoStepAdamsBashforth(MultistepSolver):
 
         See https://en.wikipedia.org/wiki/Linear_multistep_method#Two-step_Adams%E2%80%93Bashforth
         """
-
         super().__init__(system, pre_multistep_solver, 2)
 
     def _step_factory(self):

@@ -16,15 +16,15 @@ class L96(System):
     def __init__(
         self,
         μ: float,
+        gs: jndarray,
         bs: jndarray,
-        γs: jndarray,
         cs: jndarray,
         observed_slice: slice,
         I: int,
         J: int,
         J_sim: int,
     ):
-        super().__init__(μ, bs, γs, cs, observed_slice)
+        super().__init__(μ, gs, bs, cs, observed_slice)
 
         self._I, self._J, self._J_sim = I, J, J_sim
 
@@ -33,8 +33,8 @@ class L96(System):
         self._us, self._vs = jnp.s_[:, 0], jnp.s_[:, 1:]
 
     def ode(self, true: jndarray) -> jndarray:
-        p1, p2 = self.γs
-        F, ds = self.bs[0], self.bs[1:]
+        p1, p2 = self.gs[6:]
+        F, ds = self.gs[0], self.gs[1:6]
 
         u, v = true[self.us], true[self.vs]
 
