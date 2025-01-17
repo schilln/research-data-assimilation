@@ -24,7 +24,6 @@ The following files will be useful to define systems of differential equations, 
 
   Provides a function to iteratively simulate a given instance of `base_system.System` forward in time and optimize parameters at regular intervals.
 
-
 ## Examples
 
 - `L63.py` and `L63.ipynb`
@@ -39,3 +38,11 @@ The following files will be useful to define systems of differential equations, 
 ## Dependencies
 
 See `requirements_jax_gpu.txt` for required Python dependencies when using a GPU, and `requirements.txt` when not using a GPU.
+
+## Creating custom ODE solvers
+
+See `base_solver.py`, which contains some abstract base classes, and `solvers.py`, which contains concrete implementations/subclasses. Other code, such as that in `utils.py`, should be able to work with new subclasses.
+
+## Creating custom optimizers
+
+See `base_optim.py`, which contains an abstract base class and some concrete implementations/subclasses. Other code, such as that in `utils.py`, should be able to work with new subclasses.
