@@ -56,7 +56,7 @@ class System:
             equations.
             May be overridden (see docstring).
 
-        Abstract methods
+        Abstract Methods
         ----------------
         These must be overridden by subclasses.
 

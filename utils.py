@@ -24,9 +24,9 @@ def run_update(
     t_relax: float,
     true0: jndarray,
     nudged0: jndarray,
-    method: Callable[
-        [base_system.System, jndarray, jndarray], jndarray
-    ] = base_optim.levenberg_marquardt,
+    optimizer: Callable[[jndarray, jndarray], jndarray]
+    | base_optim.Optimizer
+    | None = None,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Use `solver` to run `system` and update parameter values with `method`,
     and return sequence of parameter values and errors between nudged and true
@@ -53,8 +53,13 @@ def run_update(
         The initial state of the true system
     nudged0
         The initial state of the nudged system
-    method
-        The method to use to perform parameter udpates.
+    optimizer
+        A callable that accepts the observed portion of the true system state
+        and the nudged system state and returns updated `system` parameters.
+
+        Note that an instance of `base_optim.Optimizer` implements this
+        interface.
+        If None, defaults to `base_optim.LevenbergMarquardt`.
 
     Returns
     -------
@@ -71,14 +76,16 @@ def run_update(
         `T0` to approximately `Tf`
         shape (N + 1,) where N is the number of parameter updates performed
     """
+    if optimizer is None:
+        optimizer = base_optim.LevenbergMarquardt(system)
 
     if isinstance(solver, base_solver.SinglestepSolver):
         return _run_update_singlestep(
-            system, solver, dt, T0, Tf, t_relax, true0, nudged0, method
+            system, solver, dt, T0, Tf, t_relax, true0, nudged0, optimizer
         )
     elif isinstance(solver, base_solver.MultistepSolver):
         return _run_update_multistep(
-            system, solver, dt, T0, Tf, t_relax, true0, nudged0, method
+            system, solver, dt, T0, Tf, t_relax, true0, nudged0, optimizer
         )
     else:
         raise NotImplementedError(
@@ -96,15 +103,17 @@ def _run_update_singlestep(
     t_relax: float,
     true0: jndarray,
     nudged0: jndarray,
-    method: Callable[
-        [base_system.System, jndarray, jndarray], jndarray
-    ] = base_optim.levenberg_marquardt,
+    optimizer: Callable[[jndarray, jndarray], jndarray]
+    | base_optim.Optimizer
+    | None = None,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Implementation of `run_update` for non-multistep solvers (e.g., RK4),
     here referred to as 'singlestep' solvers. See documentation of `run_update`.
     """
-
     assert isinstance(solver, base_solver.SinglestepSolver)
+
+    if optimizer is None:
+        optimizer = base_optim.LevenbergMarquardt(system)
 
     cs = [system.cs]
     errors = []
@@ -117,7 +126,7 @@ def _run_update_singlestep(
         true0, nudged0 = true[-1], nudged[-1]
 
         # Update parameters
-        system.cs = method(system, true0[system.observed_slice], nudged0)
+        system.cs = optimizer(true0[system.observed_slice], nudged0)
         cs.append(system.cs)
 
         t0 = tf
@@ -143,13 +152,17 @@ def _run_update_multistep(
     t_relax: float,
     true0: jndarray,
     nudged0: jndarray,
-    method: Callable[
-        [base_system.System, jndarray, jndarray], jndarray
-    ] = base_optim.levenberg_marquardt,
+    optimizer: Callable[[jndarray, jndarray], jndarray]
+    | base_optim.Optimizer
+    | None = None,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
     """Implementation of `run_update` for multistep solvers (e.g.,
     Adams–Bashforth). See documentation of `run_update`.
     """
+    assert isinstance(solver, base_solver.MultistepSolver)
+
+    if optimizer is None:
+        optimizer = base_optim.LevenbergMarquardt(system)
 
     cs = [system.cs]
     errors = []
@@ -163,7 +176,7 @@ def _run_update_multistep(
     true0, nudged0 = true[-solver.k :], nudged[-solver.k :]
 
     # Update parameters
-    system.cs = method(system, true0[-1][system.observed_slice], nudged0[-1])
+    system.cs = optimizer(true0[-1][system.observed_slice], nudged0[-1])
     cs.append(system.cs)
 
     t0 = tf
@@ -185,9 +198,7 @@ def _run_update_multistep(
         true0, nudged0 = true[-solver.k :], nudged[-solver.k :]
 
         # Update parameters
-        system.cs = method(
-            system, true0[-1][system.observed_slice], nudged0[-1]
-        )
+        system.cs = optimizer(true0[-1][system.observed_slice], nudged0[-1])
         cs.append(system.cs)
 
         t0 = tf

@@ -24,7 +24,7 @@ class Solver:
         solve
             Simulate `self.system` forward in time.
 
-        Abstract methods
+        Abstract Methods
         ----------------
         These must be overridden by subclasses.
 

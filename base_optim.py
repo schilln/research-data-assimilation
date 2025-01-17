@@ -1,5 +1,8 @@
-"""Gradient-based methods to estimate optimal parameters for the nudged system
-in an instance of `base_system.System`."""
+"""Algorithms to estimate optimal parameters for the nudged system in an
+instance of `base_system.System`.
+
+Should also work with `separate_base_system.System`.
+"""
 
 from jax import numpy as jnp
 
@@ -8,65 +11,101 @@ from base_system import System
 jndarray = jnp.ndarray
 
 
-def gradient_descent(
-    system: System,
-    observed_true: jndarray,
-    nudged: jndarray,
-    r: float = 1e-4,
-):
-    """Compute one step of gradient descent to obtain optimal parameters for the
-    nudged system in `system`.
+class Optimizer:
+    def __init__(self, system: System):
+        """Abstract base class for optimizers of `System`s to compute updated
+        parameter values.
 
-    Parameters
-    ----------
-    observed_true
-        The observed part of the true system
-    nudged
-        The whole nudged system
-    r
-        Learning rate
+        Subclasses should implement `__call__`.
 
-    Returns
-    -------
-    new_cs
-        New parameter values cs
-    """
-    diff = nudged[system.observed_slice].ravel() - observed_true.ravel()
-    gradient = diff @ system.compute_w(nudged).T
+        They may optionally override `__init__` (such as to store other
+        algorithm parameters as attributes), but should call
+        `super().__init__(system)` to properly store `system` as an attribute.
 
-    return system.cs - r * gradient
+        Parameters
+        ----------
+        system
+            Instance of `System` whose unknown parameters (`system.cs`) are to
+            be optimized
+
+        Abstract Methods
+        ----------------
+        __call__
+        """
+        self._system = system
+
+    def __call__(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        """Compute the new parameter values following one step of the
+        optimization algorithm.
+
+        Parameters
+        ----------
+        observed_true
+            The observed portion of the true system's state
+        nudged
+            The nudged system's state
+
+        Returns
+        -------
+        new_cs
+            The new values for `system.cs`
+        """
+        raise NotImplementedError()
+
+    # The following attribute is read-only.
+    system = property(lambda self: self._system)
 
 
-def levenberg_marquardt(
-    system: System,
-    observed_true: jndarray,
-    nudged: jndarray,
-    r: float = 1e-3,
-    λ: float = 1e-2,
-):
-    """Compute one step of Levenberg–Marquardt to obtain optimal parameters for
-    thenudged system in `system`.
+class GradientDescent(Optimizer):
+    def __init__(self, system: System, learning_rate: float = 1e-4):
+        """Perform gradient descent.
 
-    Parameters
-    ----------
-    observed_true
-        The observed part of the true system.
-    nudged
-        The whole nudged system
-    r
-        Learning rate
-    λ
-        Levenberg–Marquardt parameter
+        See documentation of `Optimizer`.
 
-    Returns
-    -------
-    new_cs
-        New parameter values cs
-    """
-    diff = nudged[system.observed_slice].ravel() - observed_true.ravel()
+        Parameters
+        ----------
+        learning_rate
+            The learning rate to use in gradient descent
+        """
 
-    gradient = diff @ system.compute_w(nudged).T
-    mat = jnp.outer(gradient, gradient)
+        super().__init__(system)
+        self.learning_rate = learning_rate
 
-    step = jnp.linalg.solve(mat + λ * jnp.eye(len(gradient)), gradient)
-    return system.cs - r * step
+    def __call__(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        diff = (
+            nudged[self.system.observed_slice].ravel() - observed_true.ravel()
+        )
+        gradient = diff @ self.system.compute_w(nudged).T
+
+        return self.system.cs - self.learning_rate * gradient
+
+
+class LevenbergMarquardt(Optimizer):
+    def __init__(
+        self, system: System, learning_rate: float = 1e-3, lam: float = 1e-2
+    ):
+        """Perform the Levenberg–Marquardt algorithm of optimization.
+
+        Parameters
+        ----------
+        learning_rate
+            The learning rate to use in gradient descent
+        lam
+            Levenberg–Marquardt parameter
+        """
+        super().__init__(system)
+        self.learning_rate = learning_rate
+        self.lam = lam
+
+    def __call__(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        diff = (
+            nudged[self.system.observed_slice].ravel() - observed_true.ravel()
+        )
+
+        gradient = diff @ self.system.compute_w(nudged).T
+        mat = jnp.outer(gradient, gradient)
+
+        step = jnp.linalg.solve(
+            mat + self.lam * jnp.eye(len(gradient)), gradient
+        )
+        return self.system.cs - self.learning_rate * step
