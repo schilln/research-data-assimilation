@@ -9,7 +9,7 @@ import numpy as np
 from jax import numpy as jnp
 
 import separate_base_system
-from separate_base_solver import Solver, MultistepSolver
+from separate_base_solver import Solver, SinglestepSolver, MultistepSolver
 import base_optim
 
 jndarray = jnp.ndarray
@@ -25,22 +25,24 @@ def run_update(
     t_relax: float,
     true0: jndarray,
     nudged0: jndarray,
-    method: Callable[
-        [separate_base_system.System, jndarray, jndarray], jndarray
-    ] = base_optim.levenberg_marquardt,
+    optimizer: Callable[[jndarray, jndarray], jndarray]
+    | base_optim.Optimizer
+    | None = None,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
-    """Use `solver` to run `system` and update parameter values with `method`,
-    and return sequence of parameter values and errors between nudged and true
-    states.
+    """Use `true_solver` and `nudged_solver` to run `system` and update
+    parameter values with `optimizer`, and return sequence of parameter values
+    and errors between nudged and true states.
 
     Parameters
     ----------
     system
         The system to simulate
     true_solver
-        An instance of `base_solver.Solver` to simulate true state of `system`
+        An instance of `separate_base_solver.Solver` to simulate true state of
+        `system`
     nudged_solver
-        An instance of `base_solver.Solver` to simulate nudged state of `system`
+        An instance of `separate_base_solver.Solver` to simulate nudged state of
+        `system`
     dt
         The step size to use in `solver`
     T0
@@ -56,8 +58,13 @@ def run_update(
         The initial state of the true system
     nudged0
         The initial state of the nudged system
-    method
-        The method to use to perform parameter udpates.
+    optimizer
+        A callable that accepts the observed portion of the true system state
+        and the nudged system state and returns updated `system` parameters.
+
+        Note that an instance of `base_optim.Optimizer` implements this
+        interface.
+        If None, defaults to `base_optim.LevenbergMarquardt`.
 
     Returns
     -------
@@ -88,9 +95,15 @@ def run_update(
 
         # Get true states except for initial states (for error calculation).
         remove_true0 = lambda true: true[true_solver.k :]
-    else:
+    elif isinstance(true_solver, SinglestepSolver):
         get_true0 = lambda true: true[-1]
         remove_true0 = lambda true: true[1:]
+    else:
+        raise NotImplementedError(
+            "`true_solver` should be instance of subclass of "
+            "`separate_base_solver.SinglestepSolver` or "
+            "`separate_base_solver.MultistepSolver`"
+        )
 
     if isinstance(nudged_solver, MultistepSolver):
         nudged_args["start_with_multistep"] = True
@@ -102,11 +115,17 @@ def run_update(
 
         # Stack previous true states with current true states.
         concat_true = lambda prev_true, true: jnp.concatenate((prev_true, true))
-    else:
+    elif isinstance(nudged_solver, SinglestepSolver):
         get_nudged0 = lambda nudged: nudged[-1]
         remove_nudged0 = lambda nudged: nudged[1:]
         get_prev_true = lambda _: None
         concat_true = lambda _, true: true
+    else:
+        raise NotImplementedError(
+            "`nudged_solver` should be instance of subclass of "
+            "`separate_base_solver.SinglestepSolver` or "
+            "`separate_base_solver.MultistepSolver`"
+        )
 
     t0 = T0
     tf = t0 + t_relax
@@ -121,7 +140,7 @@ def run_update(
     nudged0 = get_nudged0(nudged)
 
     # Update parameters
-    system.cs = method(system, true[-1][system.observed_slice], nudged[-1])
+    system.cs = optimizer(system, true[-1][system.observed_slice], nudged[-1])
     cs.append(system.cs)
 
     t0 = tls[-1]
@@ -148,7 +167,9 @@ def run_update(
         nudged0 = get_nudged0(nudged)
 
         # Update parameters
-        system.cs = method(system, true[-1][system.observed_slice], nudged[-1])
+        system.cs = optimizer(
+            system, true[-1][system.observed_slice], nudged[-1]
+        )
         cs.append(system.cs)
 
         t0 = tls[-1]

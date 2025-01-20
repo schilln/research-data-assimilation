@@ -95,7 +95,7 @@ class Solver:
 
         Returns
         -------
-        true
+        state0
             Array initialized with inf with the shape to hold N steps of the
             system state
             shape (N, *state0.shape)
@@ -130,7 +130,7 @@ class Solver:
 
         Example implementation
         ----------------------
-        true = self._init_solve(true0, t0, tf, dt)
+        true, tls = self._init_solve(true0, t0, tf, dt)
 
         true, _ = lax.fori_loop(1, len(true), self.step, (true, (dt,)))
 
@@ -172,7 +172,7 @@ class Solver:
 
         Example implementation
         ----------------------
-        nudged = self._init_solve(nudged0, t0, tf, dt)
+        nudged, tls = self._init_solve(nudged0, t0, tf, dt)
 
         nudged, _ = lax.fori_loop(
             1,
