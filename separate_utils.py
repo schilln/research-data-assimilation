@@ -81,6 +81,9 @@ def run_update(
         `T0` to approximately `Tf`
         shape (N + 1,) where N is the number of parameter updates performed
     """
+    if optimizer is None:
+        optimizer = base_optim.LevenbergMarquardt(system)
+
     cs = [system.cs]
     errors = []
 
@@ -140,7 +143,7 @@ def run_update(
     nudged0 = get_nudged0(nudged)
 
     # Update parameters
-    system.cs = optimizer(system, true[-1][system.observed_slice], nudged[-1])
+    system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
     cs.append(system.cs)
 
     t0 = tls[-1]
@@ -167,9 +170,7 @@ def run_update(
         nudged0 = get_nudged0(nudged)
 
         # Update parameters
-        system.cs = optimizer(
-            system, true[-1][system.observed_slice], nudged[-1]
-        )
+        system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
         cs.append(system.cs)
 
         t0 = tls[-1]
