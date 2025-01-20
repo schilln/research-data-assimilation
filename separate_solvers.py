@@ -28,8 +28,6 @@ class RK4(SinglestepSolver):
             k3t = f(t + dt * k2t / 2)
             k4t = f(t + dt * k3t)
 
-            # TODO: This can be optimized slightly by replacing the add-then-set
-            # with just an add to true/nudged.
             t = t.at[:].add((dt / 6) * (k1t + 2 * k2t + 2 * k3t + k4t))
 
             true = true.at[i].set(t)
@@ -57,7 +55,6 @@ class ForwardEuler(SinglestepSolver):
             true, (dt,) = vals
             t = true[i - 1]
 
-            # TODO: Optimize this.
             t = t.at[:].add(dt * f(t))
 
             true = true.at[i].set(t)
@@ -71,7 +68,6 @@ class ForwardEuler(SinglestepSolver):
             t = true_observed[i - 1]
             n = nudged[i - 1]
 
-            # TODO: Optimize this.
             n = n.at[:].add(dt * f(cs, t, n))
 
             nudged = nudged.at[i].set(n)
@@ -103,7 +99,6 @@ class TwoStepAdamsBashforth(MultistepSolver):
             tmp2 = f(t2)
             tmp1 = f(t1)
 
-            # TODO: Optimize this.
             t1 = t1.at[:].add(3 / 2 * dt * tmp1[0] - 1 / 2 * dt * tmp2[0])
 
             true = true.at[i].set(t1)

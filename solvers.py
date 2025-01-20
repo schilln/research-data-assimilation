@@ -44,8 +44,6 @@ class RK4(SinglestepSolver):
                 n + dt * k3n,
             )
 
-            # TODO: This can be optimized slightly by replacing the add-then-set
-            # with just an add to true/nudged.
             t = t.at[:].add((dt / 6) * (k1t + 2 * k2t + 2 * k3t + k4t))
             n = n.at[:].add((dt / 6) * (k1n + 2 * k2n + 2 * k3n + k4n))
 
@@ -78,7 +76,6 @@ class TwoStepAdamsBashforth(MultistepSolver):
             tmp2 = f(cs, t2, n2)
             tmp1 = f(cs, t1, n1)
 
-            # TODO: Optimize this.
             t1 = t1.at[:].add(3 / 2 * dt * tmp1[0] - 1 / 2 * dt * tmp2[0])
             n1 = n1.at[:].add(3 / 2 * dt * tmp1[1] - 1 / 2 * dt * tmp2[1])
 
