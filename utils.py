@@ -28,9 +28,9 @@ def run_update(
     | base_optim.Optimizer
     | None = None,
 ) -> tuple[jndarray, np.ndarray, np.ndarray]:
-    """Use `solver` to run `system` and update parameter values with `method`,
-    and return sequence of parameter values and errors between nudged and true
-    states.
+    """Use `solver` to run `system` and update parameter values with
+    `optimizer`, and return sequence of parameter values and errors between
+    nudged and true states.
 
     Parameters
     ----------
