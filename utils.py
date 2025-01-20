@@ -121,19 +121,21 @@ def _run_update_singlestep(
     t0 = T0
     tf = t0 + t_relax
     while tf <= Tf:
-        true, nudged = solver.solve(true0, nudged0, t0, tf, dt)
+        true, nudged, tls = solver.solve(true0, nudged0, t0, tf, dt)
 
         true0, nudged0 = true[-1], nudged[-1]
 
         # Update parameters
-        system.cs = optimizer(true0[system.observed_slice], nudged0)
+        system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
         cs.append(system.cs)
 
-        t0 = tf
+        t0 = tls[-1]
         tf = t0 + t_relax
 
         # Relative error
-        errors.append(np.linalg.norm(true - nudged) / np.linalg.norm(true))
+        errors.append(
+            np.linalg.norm(true[1:] - nudged[1:]) / np.linalg.norm(true[1:])
+        )
 
     errors = np.array(errors)
 
@@ -171,22 +173,24 @@ def _run_update_multistep(
     t0 = T0
     tf = t0 + t_relax
 
-    true, nudged = solver.solve(true0, nudged0, t0, tf, dt)
+    true, nudged, tls = solver.solve(true0, nudged0, t0, tf, dt)
 
     true0, nudged0 = true[-solver.k :], nudged[-solver.k :]
 
     # Update parameters
-    system.cs = optimizer(true0[-1][system.observed_slice], nudged0[-1])
+    system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
     cs.append(system.cs)
 
-    t0 = tf
+    t0 = tls[-1]
     tf = t0 + t_relax
 
     # Relative error
-    errors.append(np.linalg.norm(true - nudged) / np.linalg.norm(true))
+    errors.append(
+        np.linalg.norm(true[1:] - nudged[1:]) / np.linalg.norm(true[1:])
+    )
 
     while tf <= Tf:
-        true, nudged = solver.solve(
+        true, nudged, tls = solver.solve(
             true0,
             nudged0,
             t0,
@@ -198,14 +202,17 @@ def _run_update_multistep(
         true0, nudged0 = true[-solver.k :], nudged[-solver.k :]
 
         # Update parameters
-        system.cs = optimizer(true0[-1][system.observed_slice], nudged0[-1])
+        system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
         cs.append(system.cs)
 
-        t0 = tf
+        t0 = tls[-1]
         tf = t0 + t_relax
 
         # Relative error
-        errors.append(np.linalg.norm(true - nudged) / np.linalg.norm(true))
+        errors.append(
+            np.linalg.norm(true[solver.k :] - nudged[solver.k :])
+            / np.linalg.norm(true[solver.k :])
+        )
 
     errors = np.array(errors)
 
