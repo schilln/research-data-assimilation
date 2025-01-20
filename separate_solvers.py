@@ -122,3 +122,58 @@ class TwoStepAdamsBashforth(MultistepSolver):
             return nudged, (dt, cs, true_observed)
 
         return step_true, step_nudged
+
+
+class FourStepAdamsBashforth(MultistepSolver):
+    def __init__(self, system: System, pre_multistep_solver: Solver):
+        """Four-step Adams–Bashforth solver.
+
+        See documentation of `base_solver.MultistepSolver`.
+
+        https://en.wikipedia.org/wiki/Linear_multistep_method#Adams%E2%80%93Bashforth_methods
+        """
+
+        super().__init__(system, pre_multistep_solver, 4)
+
+    def _step_factory(self):
+        def step_true(i, vals):
+            f = self.system.f_true
+
+            true, (dt,) = vals
+            t4 = true[i - 4]
+            t3 = true[i - 3]
+            t2 = true[i - 2]
+            t1 = true[i - 1]
+
+            p4 = f(t4)
+            p3 = f(t3)
+            p2 = f(t2)
+            p1 = f(t1)
+
+            t1 = t1.at[:].add(dt / 24 * (55 * p1 - 59 * p2 + 37 * p3 - 9 * p4))
+
+            true = true.at[i].set(t1)
+
+            return true, (dt,)
+
+        def step_nudged(i, vals):
+            f = self.system.f_nudged
+
+            nudged, (dt, cs, true_observed) = vals
+            t4, n4 = true_observed[i - 4], nudged[i - 4]
+            t3, n3 = true_observed[i - 3], nudged[i - 3]
+            t2, n2 = true_observed[i - 2], nudged[i - 2]
+            t1, n1 = true_observed[i - 1], nudged[i - 1]
+
+            p4 = f(cs, t4, n4)
+            p3 = f(cs, t3, n3)
+            p2 = f(cs, t2, n2)
+            p1 = f(cs, t1, n1)
+
+            n1 = n1.at[:].add(dt / 24 * (55 * p1 - 59 * p2 + 37 * p3 - 9 * p4))
+
+            nudged = nudged.at[i].set(n1)
+
+            return nudged, (dt, cs, true_observed)
+
+        return step_true, step_nudged
