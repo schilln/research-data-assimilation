@@ -1,6 +1,9 @@
 """Concrete implementations of `base_solver.Solver`."""
 
-from jax import numpy as jnp
+from functools import partial
+
+from jax import numpy as jnp, jit
+import scipy
 
 from base_system import System
 from base_solver import Solver, SinglestepSolver, MultistepSolver
@@ -85,3 +88,104 @@ class TwoStepAdamsBashforth(MultistepSolver):
             return (true, nudged), (dt, cs)
 
         return step
+
+
+class SolveIvp(SinglestepSolver):
+    def __init__(self, system: System, options: dict = dict()):
+        """Wrapper around `scipy.integrate.solve_ivp` implementing the same
+        external interface as `base_solver.SinglestepSolver`.
+
+        Note that this class does not use or implement all methods defined in
+        its parent class since it uses `solve_ivp` (instead of a custom
+        implementation of an ODE-solving algorithm using jax).
+
+        See documentation of `base_solver.SinglestepSolver`.
+
+        Parameters
+        ----------
+        system
+            An instance of `base_system.System` to simulate forward in time.
+        options
+            Optional arguments that will be passed directly to `solve_ivp`
+
+        Methods
+        -------
+        solve
+            Simulate `self.system` forward in time.
+
+        Attributes
+        ----------
+        system
+            The `system` passed to `__init__`; read-only
+        options
+            The `options` passed to `__init__`, but may be modified at any time
+        """
+        self._system = system
+        self.options = options
+
+    def solve(
+        self,
+        true0: jndarray,
+        nudged0: jndarray,
+        t0: float,
+        tf: float,
+        dt: float,
+        options: dict = dict(),
+    ) -> tuple[jndarray, jndarray, jndarray]:
+        self._true_shape = true0.shape
+        self._nudged_shape = nudged0.shape
+
+        # The index at which nudged states start (to be used in `_unpack` and
+        # `_unpack_sequence`)
+        self._nudged_idx = true0.size
+
+        s0 = self._pack(true0, nudged0)
+        tls = t0 + jnp.arange(round((tf - t0) / dt)) * dt
+
+        result = scipy.integrate.solve_ivp(
+            self._ode,
+            (t0, tf),
+            s0,
+            t_eval=tls,
+            args=(self.system.cs,),
+            **self.options,
+        )
+
+        true, nudged = self._unpack_sequence(result.y)
+        return true.T, nudged.T, tls
+
+    @partial(jit, static_argnames="self")
+    def _ode(self, _, s: jndarray, cs):
+        """Wrap `self.system.f` using the interface that `solve_ivp` expects."""
+        true, nudged = self._unpack(s)
+
+        return self._pack(*self.system.f(cs, true, nudged))
+
+    @partial(jit, static_argnames="self")
+    def _pack(self, true: jndarray, nudged: jndarray):
+        """Pack true and nudged states into one array for use in `solve_ivp`."""
+        return jnp.concatenate([true.ravel(), nudged.ravel()])
+
+    @partial(jit, static_argnames="self")
+    def _unpack(self, s: jndarray):
+        """Unpack true and nudged states to use with `self.system.f`."""
+        true = s[: self._nudged_idx]
+        nudged = s[self._nudged_idx :]
+
+        return (
+            true.reshape(self._true_shape),
+            nudged.reshape(self._nudged_shape),
+        )
+
+    @partial(jit, static_argnames="self")
+    def _unpack_sequence(self, s: jndarray):
+        """Unpack sequences of true and nudged states (e.g., from the result of
+        `solve_ivp`).
+        """
+        true = s[: self._nudged_idx]
+        nudged = s[self._nudged_idx :]
+
+        return (
+            true.reshape(*self._true_shape, -1),
+            nudged.reshape(*self._nudged_shape, -1),
+        )
