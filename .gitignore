@@ -22,3 +22,7 @@ venv.bak/
 
 # VS Code
 .vscode
+
+# Outputs
+*.pdf
+*.synctex.gz
