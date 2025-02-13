@@ -1,6 +1,6 @@
 """
-Advection equation u_t + c u_x = 0, x in [0, 2 Pi] with periodic boundary
-conditions.
+Advection equation u_t + c u_x = 0, x in an interval [x0, xf] with periodic
+boundary conditions.
 
 Test case for pseudo-spectral method.
 
@@ -17,13 +17,27 @@ jndarray = jnp.ndarray
 
 
 class Advection(System):
+    def __init__(
+        self,
+        μ: float,
+        gs: jndarray,
+        bs: jndarray,
+        cs: jndarray,
+        observed_slice: slice,
+        x0: float,
+        xf: float,
+    ):
+        super().__init__(μ, gs, bs, cs, observed_slice)
+
+        self._period = xf - x0
+
     def ode(self, true: jndarray) -> jndarray:
-        return self.gs * Advection.d(true, 1)
+        return self.gs * self.d(true, 1)
 
     def estimated_ode(self, cs: jndarray, nudged: jndarray) -> jndarray:
-        return cs * Advection.d(nudged, 1)
+        return cs * self.d(nudged, 1)
 
-    def d(s: jndarray, m: int) -> jndarray:
+    def d(self, s: jndarray, m: int) -> jndarray:
         """Compute mth spatial derivative of the state.
 
         Parameters
@@ -39,6 +53,6 @@ class Advection(System):
             Approximation of mth spatial derivative of s
         """
         n = len(s)
-        k = fft.rfftfreq(n)
+        k = fft.rfftfreq(n, self._period / n)
 
         return fft.irfft((1j * k) ** m * fft.rfft(s))
