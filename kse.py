@@ -49,7 +49,7 @@ class KSE(System):
         s
             System state (e.g., true or nudged) at a point in time
         m
-            Number of sptial derivatives to take
+            Number of spatial derivatives to take
 
         Returns
         -------
