@@ -4,6 +4,10 @@ u_t + u_xx + u_xxxx + u u_x = 0, x in an interval [x0, xf] with periodic
 boundary conditions.
 """
 
+from functools import partial
+
+import jax
+
 from jax import numpy as jnp
 from jax.numpy import fft
 
@@ -22,24 +26,44 @@ class KSE(System):
         observed_slice: slice,
         x0: float,
         xf: float,
+        xn: int,
     ):
+        """
+
+        Parameters
+        ----------
+        x0, xf
+            Endpoints of spatial domain
+        xn
+            Number of spatial grid points
+        """
         super().__init__(μ, gs, bs, cs, observed_slice)
 
-        self._period = xf - x0
+        self._k = fft.rfftfreq(xn, (xf - x0) / xn)
 
     def ode(self, true: jndarray) -> jndarray:
+        # Note `true` should be in frequency domain.
         d = self.d
         p1, p2, p3 = self.gs
         u = true
 
-        return -(p1 * d(u, 2) + p2 * u * d(u, 1) + p3 * d(u, 4))
+        return -(
+            p1 * d(u, 2)
+            + p2 * fft.rfft(fft.irfft(u) * fft.irfft(d(u, 1)))
+            + p3 * d(u, 4)
+        )
 
     def estimated_ode(self, cs: jndarray, nudged: jndarray) -> jndarray:
+        # Note `nudged` should be in frequency domain.
         d = self.d
         p1, p2, p3 = cs
         u = nudged
 
-        return -(p1 * d(u, 2) + p2 * u * d(u, 1) + p3 * d(u, 4))
+        return -(
+            p1 * d(u, 2)
+            + p2 * fft.rfft(fft.irfft(u) * fft.irfft(d(u, 1)))
+            + p3 * d(u, 4)
+        )
 
     def d(self, s: jndarray, m: int) -> jndarray:
         """Compute mth spatial derivative of the state.
@@ -47,16 +71,23 @@ class KSE(System):
         Parameters
         ----------
         s
-            System state (e.g., true or nudged) at a point in time
+            System state (e.g., true or nudged) at a point in time in frequency
+            domain
         m
             Number of spatial derivatives to take
 
         Returns
         -------
-        d^n s / d {x^n}
+        d^m s / d {x^m}
             Approximation of mth spatial derivative of s
         """
-        n = len(s)
-        k = fft.rfftfreq(n, self._period / n)
+        return (1j * self._k) ** m * s
 
-        return fft.irfft((1j * k) ** m * fft.rfft(s))
+    @partial(jax.jit, static_argnames="self")
+    def _compute_w(self, cs: jndarray, nudged: jndarray) -> jndarray:
+        return (
+            jax.jacrev(self.estimated_ode, 0, holomorphic=True)(cs, nudged)[
+                self.observed_slice
+            ].T
+            / self.μ
+        )

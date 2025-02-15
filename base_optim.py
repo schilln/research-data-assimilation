@@ -108,4 +108,4 @@ class LevenbergMarquardt(Optimizer):
         step = jnp.linalg.solve(
             mat + self.lam * jnp.eye(len(gradient)), gradient
         )
-        return self.system.cs - self.learning_rate * step
+        return self.system.cs - self.learning_rate * jnp.real(step)
