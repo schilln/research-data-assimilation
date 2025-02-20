@@ -75,7 +75,8 @@ class GradientDescent(Optimizer):
         diff = (
             nudged[self.system.observed_slice].ravel() - observed_true.ravel()
         )
-        gradient = diff @ self.system.compute_w(nudged).T
+        w = self.system.compute_w(nudged)
+        gradient = diff @ jnp.reshape(w.T, (-1, w.shape[0]))
 
         return self.system.cs - self.learning_rate * gradient
 
@@ -101,8 +102,8 @@ class LevenbergMarquardt(Optimizer):
         diff = (
             nudged[self.system.observed_slice].ravel() - observed_true.ravel()
         )
-
-        gradient = diff @ self.system.compute_w(nudged).T
+        w = self.system.compute_w(nudged)
+        gradient = diff @ jnp.reshape(w.T, (-1, w.shape[0]))
         mat = jnp.outer(gradient, gradient)
 
         step = jnp.linalg.solve(
