@@ -57,4 +57,4 @@ class Wave(System):
         n = len(s)
         k = fft.rfftfreq(n, self._period / n)
 
-        return fft.irfft((1j * k) ** m * fft.rfft(s))
+        return fft.irfft((2 * jnp.pi * 1j * k) ** m * fft.rfft(s))
