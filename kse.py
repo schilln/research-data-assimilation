@@ -119,6 +119,10 @@ class KSE(System):
 
         return jnp.sum(ps * self.d_coeffs(derivs).T, axis=1)
 
+    def estimated_N(self, cs: jndarray, true: jndarray, nudged: jndarray):
+        s = self.observed_slice
+        return self.N(cs, nudged) - self.μ * (nudged[s] - true[s])
+
 
 class SemiImplicitRK3(SinglestepSolver):
     def __init__(self, system: KSE):
@@ -134,13 +138,15 @@ class SemiImplicitRK3(SinglestepSolver):
     def _step_factory(self):
         def step(i, vals):
             system = self.system
-            L, N = system.L, system.N
+            L, N, eN = system.L, system.N, system.estimated_N
             gs = system.gs
 
             (true, nudged), (dt, cs) = vals
             t = true[i - 1]
+            n = nudged[i - 1]
 
             next_t = jnp.copy(t)
+            next_n = jnp.copy(n)
             for k in range(3):
                 dtt = dt / (3 - k)
 
@@ -149,7 +155,13 @@ class SemiImplicitRK3(SinglestepSolver):
                     1 + dtt / 2 * system.L_coeffs(gs)
                 )
 
+                next_n = n + dtt * eN(cs, next_t, next_n)
+                next_n = (next_n + dtt / 2 * L(cs, n)) / (
+                    1 + dtt / 2 * system.L_coeffs(cs)
+                )
+
             true = true.at[i].set(next_t)
+            nudged = nudged.at[i].set(next_n)
 
             return (true, nudged), (dt, cs)
 
