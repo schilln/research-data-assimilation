@@ -81,7 +81,7 @@ class KSE(System):
         d^m s / d {x^m}
             Approximation of mth spatial derivative of s
         """
-        return (1j * self._k) ** m * s
+        return (2 * jnp.pi * 1j * self._k) ** m * s
 
     @partial(jax.jit, static_argnames="self")
     def _compute_w(self, cs: jndarray, nudged: jndarray) -> jndarray:
