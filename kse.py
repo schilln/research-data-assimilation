@@ -12,6 +12,7 @@ from jax import numpy as jnp
 from jax.numpy import fft
 
 from base_system import System
+from base_solver import SinglestepSolver
 
 jndarray = jnp.ndarray
 
@@ -43,29 +44,13 @@ class KSE(System):
 
     def ode(self, true: jndarray) -> jndarray:
         # Note `true` should be in frequency domain.
-        d = self.d
-        p1, p2, p3 = self.gs
-        u = true
-
-        return -(
-            p1 * d(u, 2)
-            + p2 * fft.rfft(fft.irfft(u) * fft.irfft(d(u, 1)))
-            + p3 * d(u, 4)
-        )
+        return self.L(self.gs, true) + self.N(self.gs, true)
 
     def estimated_ode(self, cs: jndarray, nudged: jndarray) -> jndarray:
         # Note `nudged` should be in frequency domain.
-        d = self.d
-        p1, p2, p3 = cs
-        u = nudged
+        return self.L(cs, nudged) + self.N(cs, nudged)
 
-        return -(
-            p1 * d(u, 2)
-            + p2 * fft.rfft(fft.irfft(u) * fft.irfft(d(u, 1)))
-            + p3 * d(u, 4)
-        )
-
-    def d(self, s: jndarray, m: int) -> jndarray:
+    def d(self, s: jndarray, m: jndarray) -> jndarray:
         """Compute mth spatial derivative of the state.
 
         Parameters
@@ -75,13 +60,26 @@ class KSE(System):
             domain
         m
             Number of spatial derivatives to take
+            If n derivatives are desired, should have shape (n, 1).
 
         Returns
         -------
         d^m s / d {x^m}
             Approximation of mth spatial derivative of s
         """
-        return (2 * jnp.pi * 1j * self._k) ** m * s
+        return self.d_coeffs(m) * s
+
+    def d_coeffs(self, m: jndarray) -> jndarray:
+        """Compute the coefficient of the mth spatial derivative,
+        (2 pi i k)**m.
+
+        Parameters
+        ----------
+        m
+            Number of spatial derivatives to take
+            If n derivatives are desired, should have shape (n, 1).
+        """
+        return (2 * jnp.pi * 1j * self._k) ** m
 
     @partial(jax.jit, static_argnames="self")
     def _compute_w(self, cs: jndarray, nudged: jndarray) -> jndarray:
@@ -91,3 +89,68 @@ class KSE(System):
             ].T
             / self.μ
         )
+
+    def N(self, ps: jndarray, s: jndarray):
+        _, p1, _ = ps
+
+        # Alternative computation that runs but the solution looks different
+        # return -p2 * fft.rfft(fft.irfft(s) * fft.irfft(self.d(s, 1)))
+
+        return -p1 * jnp.pi * 1j * self._k * fft.rfft(fft.irfft(s) ** 2)
+
+    def L(self, ps: jndarray, s: jndarray):
+        d = self.d
+        p0, _, p2 = ps
+        m0, m2 = self.L_derivs
+
+        return -(p0 * d(s, m0) + p2 * d(s, m2))
+
+    L_derivs = jnp.array([2, 4])
+
+    def L_coeffs(self, ps: jndarray) -> jndarray:
+        """The coefficients values in
+
+        For each k,
+          p0 * d_coeffs(2) + p2 * d_coeffs(2))
+        = p0 * (2 pi k)**2 + p2 * (2 pi k)**4.
+        """
+        ps = jnp.array([ps[0], ps[2]])
+        derivs = jnp.expand_dims(self.L_derivs, 1)
+
+        return jnp.sum(ps * self.d_coeffs(derivs).T, axis=1)
+
+
+class SemiImplicitRK3(SinglestepSolver):
+    def __init__(self, system: KSE):
+        """
+
+        Reference:
+        https://journals.ametsoc.org/view/journals/mwre/134/10/mwr3214.1.xml
+        """
+        assert isinstance(system, KSE)
+
+        super().__init__(system)
+
+    def _step_factory(self):
+        def step(i, vals):
+            system = self.system
+            L, N = system.L, system.N
+            gs = system.gs
+
+            (true, nudged), (dt, cs) = vals
+            t = true[i - 1]
+
+            next_t = jnp.copy(t)
+            for k in range(3):
+                dtt = dt / (3 - k)
+
+                next_t = t + dtt * N(gs, next_t)
+                next_t = (next_t + dtt / 2 * L(gs, t)) / (
+                    1 + dtt / 2 * system.L_coeffs(gs)
+                )
+
+            true = true.at[i].set(next_t)
+
+            return (true, nudged), (dt, cs)
+
+        return step
