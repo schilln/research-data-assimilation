@@ -1,3 +1,19 @@
+*.synctex.gz
+*.synctex(busy)
+
+*blx.bib
+*.bbl
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*blx.bib
+*.toc
+
 # Beamer files
 *.nav
 *.snm
