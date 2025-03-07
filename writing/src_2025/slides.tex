@@ -2,6 +2,7 @@
 
 \usepackage{style}
 \usepackage{beamer}
+\usepackage{ulem}
 
 \usepackage[backend=bibtex8]{biblatex}
 \addbibresource{src_2025.bib}
@@ -41,43 +42,59 @@
 
 \frame{\titlepage}
 
-\section{Goal}
+\section{Goal: two-dimensional turbulence}
 
 \begin{frame}
   \frametitle{Two-dimensional turbulence \cite{guan_online_2024}}
-
+  ``True'' system state
   \begin{align*}
     \omega & \quad \text{vorticity} \\
     \psi & \quad \text{streamfunction}
   \end{align*}
-  ``True'' system state
-  \begin{equation}
-    \begin{gathered}
-      \nabla^2 \psi = - \omega \\
-      \frac{\partial \omega}{\partial t} + \mathcal N(\omega, \psi)
-      = \frac1{Re} \nabla^2 \omega - f - r \omega
-      + \beta \frac{\partial \psi}{\partial x}
-    \end{gathered}
-  \end{equation}
+
+  \vskip -1.5em
+
+  \begin{gather*}
+    \frac{\partial \omega}{\partial t} + \mathcal N(\omega, \psi)
+    = \frac1{Re} \nabla^2 \omega - f - r \omega
+    + \beta \frac{\partial \psi}{\partial x}, \qquad \nabla^2 \psi = - \omega
+  \end{gather*}
 
   \begin{figure}
     \centering
-    \includegraphics[width=3cm, height=3cm, keepaspectratio]{placeholder.png}
-    % One of Karan's figures
+    \includegraphics[height=1.5in, keepaspectratio]{karan0.pdf}
   \end{figure}
+  \blfootnote{Image credit: Karan Jakhar}
 \end{frame}
 
 \begin{frame}
-  \frametitle{Goal}
+  \frametitle{Problem}
   Wish: simulate every atom continuously
-  % \pause
+  \pause
 
   Reality: simulate on a coarse spatial and temporal grid
   \newline
-  % \pause
+  \pause
 
   Apply low-pass filter to true system equation to simulate coarse resolution
   of simulation
+
+  \begin{figure}
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+      \centering
+      \includegraphics[height=1.85in, keepaspectratio]{karan1.pdf}
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+      \centering
+      \includegraphics[height=1.85in, keepaspectratio]{karan2.pdf}
+    \end{subfigure}
+  \end{figure}
+  \blfootnote{Image credit: Karan Jakhar}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Approximation}
   \begin{equation}
     \begin{gathered}
       \nabla^2 \ol \psi = - \ol \omega \\
@@ -91,40 +108,7 @@
       }_{\text{subgrid-scale (} \textcolor{red}{\text{SGS}} \text{) term}}
     \end{gathered}
   \end{equation}
-
-  \begin{figure}
-    \centering
-    \begin{subfigure}{0.45\textwidth}
-      \centering
-      \includegraphics[width=3cm, height=3cm, keepaspectratio]{placeholder.png}
-      % One of Karan's figures
-    \end{subfigure}
-    \begin{subfigure}{0.45\textwidth}
-      \centering
-      \includegraphics[width=3cm, height=3cm, keepaspectratio]{placeholder.png}
-      % One of Karan's figures
-    \end{subfigure}
-  \end{figure}
-\end{frame}
-
-\begin{frame}
-  \frametitle{Question}
-
-  \textcolor{gray}{
-    \begin{equation*}
-      \begin{gathered}
-        \nabla^2 \ol \psi = - \ol \omega \\
-        \frac{\partial \ol \omega}{\partial t} + \mathcal N(\ol \omega, \ol \psi)
-        = \frac1{Re} \nabla^2 \ol \omega - \ol f - r \ol \omega
-        + \beta \frac{\partial \ol \psi}{\partial x}
-        - \underbrace{
-          \bbrack*{\ol{\mathcal N(\omega, \psi)}
-          - \mathcal N(\ol \omega, \ol \psi)}
-          % }_{\text{subgrid-scale (\textcolor{red}{SGS}) term}}
-        }_{\text{subgrid-scale (} \textcolor{red}{\text{SGS}} \text{) term}}
-      \end{gathered}
-    \end{equation*}
-  }
+  \pause
 
   \begin{block}{Question}
     How do we \textit{estimate} an optimal SGS term?
@@ -179,7 +163,7 @@
     E(c) \coloneq \frac12 \norm*{I_h(\bv - \bu)}^2 \bigg \lvert_{t=t_0}
     = \frac12 \innerproduct*{I_h(\bv - \bu), I_h(\bv - \bu)} \bigg \lvert_{t=t_0}
   \end{equation*}
-  % \pause
+  \pause
 
   Differentiate with respect to the $i$th parameter, $c_i$:
   \begin{equation*}
@@ -188,13 +172,14 @@
   \end{equation*}
   where $\bw_i \coloneq \frac{\partial \bv}{\partial c_i}$ is the $i$th
   \textit{sensitivity}.
-  % \pause
+  \newline
+  \pause
 
   If we can compute $\bw_i$, we can perform gradient descent to minimize error.
 \end{frame}
 
 \begin{frame}
-  \frametitle{Estimate $\bw_i$}
+  \frametitle{Estimate sensitivity $\bw_i$}
   Some boring differentiation
   \begin{alignat*}{4}
     \frac{\partial}{\partial c_i} \left(\frac{\partial \bv}{\partial t}\right.
@@ -205,20 +190,20 @@
     &&+ G_{c_i}(\bv, c)
     &&= \mu I_h \bw_i
   \end{alignat*}
-  % \pause
+  \pause
 
   Estimate $\bw_i$ asymptotically as $\mu \rightarrow \infty$ by assuming
   \begin{equation*}
     \bw_i = \bw_i^{0} + \frac1\mu \bw_i^{1} + \frac1{\mu^2} \bw_i^{2} + \cdots
   \end{equation*}
   and equating like terms in $\mu$.
-  % \pause
+  \pause
 
   \vskip 0.5em
 
   A scaling of time $\tau = \mu t$ and an application of Watson's Lemma yield
   \begin{equation*}
-    I_h \bw_i(t) \sim - \frac1\mu I_h G_{c_i}(\bv(t), c)
+    I_h \bw_i(t) \sim - \frac1\mu I_h G_{c_i}(\bv(t), c), \qquad \mu \rightarrow \infty
   \end{equation*}
 \end{frame}
 
@@ -273,26 +258,39 @@
 \begin{frame}
   \frametitle{Current and future work}
   \begin{itemize}[label=+]
-    \item<1-> Apply method to Kuramoto--Sivashinsky
-      equation\blfootnote{Image:
-      \text{en.wikipedia.org/wiki/Kuramoto--Sivashinsky\_equation}}
+    \item<1-> Apply method to Kuramoto--Sivashinsky equation
       \begin{equation*}
         u_t + u_{xx} + u_{xxxx} + u u_x = 0
       \end{equation*}
-    \item<2-> Clarify application of asymptotics to PDEs
-    \item<3-> Add regularization on parameter magnitudes
-    \item<4-> Experiment with alternative definitions of error $E(c)$
-    \item<5-> Apply method to two-dimensional turbulence
   \end{itemize}
+  \vskip -1.5em
   \begin{figure}
     \includegraphics[height=1.5in, keepaspectratio]{kse.png}
   \end{figure}
+  \begin{itemize}[label=+]
+    \item<2-> Clarify application of asymptotics to PDEs
+    \item<3-> Add regularization on parameters
+    \item<4-> Experiment with alternative definitions of error $E(c)$
+    \item<5-> Apply method to \textbf{two-dimensional turbulence}
+  \end{itemize}
+
+  \blfootnote{Image credit:
+  \text{en.wikipedia.org/wiki/Kuramoto--Sivashinsky\_equation}}
+\end{frame}
+
+\begin{frame}
+  \begin{center}
+    \huge \sout{Let's go home now}
+  \end{center}
+  \begin{center}
+    \huge Thank you
+  \end{center}
 \end{frame}
 
 \begin{frame}
   \frametitle{References}
   \nocite{*}
-  % \printbibliography
+  \printbibliography
 \end{frame}
 
 \end{document}
