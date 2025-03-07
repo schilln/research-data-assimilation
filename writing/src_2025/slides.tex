@@ -30,6 +30,13 @@
 
 \newcommand{\ol}{\overline}
 
+\newcommand\blfootnote[1]{%
+  \begingroup
+  \renewcommand\thefootnote{}\footnote{#1}%
+  \addtocounter{footnote}{-1}%
+  \endgroup
+}
+
 \begin{document}
 
 \frame{\titlepage}
@@ -193,10 +200,6 @@
     \frac{\partial}{\partial c_i} \left(\frac{\partial \bv}{\partial t}\right.
       &+ G(\bv, c)
     &&&&= \mu I_h(\bu - \bv)\bigg) \\
-    % \frac{\partial}{\partial t} \frac{\partial \bv}{\partial c_i}
-    % &+ \frac{\partial}{\partial \bv} G(\bv, c) \frac{\partial \bv}{\partial c_i}
-    % &&+ \frac{\partial}{\partial c_i} G(\bv, c)
-    % &&= \mu I_h\frac{\partial \bv}{\partial c_i} \\
     \dot \bw_i
     &+ \frac{\partial G}{\partial \bv} \bw_i
     &&+ G_{c_i}(\bv, c)
@@ -221,13 +224,70 @@
 
 \section{Steps}
 
-\subsection{Write code}
+\subsection{Write code supporting framework}
+
+\begin{frame}
+  \frametitle{Framework code}
+  Construct classes to easily implement
+  \begin{itemize}[label=\checkmark]
+    \item<1-> systems of differential equations
+    \item<2-> differential equation solvers
+    \item<3-> optimization of parameters
+  \end{itemize}
+  \pause
+  \pause
+  \pause
+
+  \begin{figure}
+    \centering
+    \includegraphics[height=2in, keepaspectratio]{wave_1d_code.png}
+  \end{figure}
+\end{frame}
 
 \subsection{Test on ordinary differential equations}
 
 \subsection{Test on partial differential equations}
 
+\begin{frame}
+  \frametitle{Test on PDEs: one-dimensional wave equation}
+  \begin{figure}
+    \centering
+    \includegraphics[width=0.9\textwidth, keepaspectratio]{wave_1d_params.pdf}
+  \end{figure}
+  \vskip -1em
+  \begin{figure}
+    \centering
+    \begin{subfigure}{0.42\textwidth}
+      \centering
+      \includegraphics[width=\textwidth, keepaspectratio]{wave_1d_true.pdf}
+    \end{subfigure}
+    \begin{subfigure}{0.42\textwidth}
+      \centering
+      \includegraphics[width=\textwidth, keepaspectratio]{wave_1d_nudged.pdf}
+    \end{subfigure}
+  \end{figure}
+\end{frame}
+
 \section{Current and future work}
+
+\begin{frame}
+  \frametitle{Current and future work}
+  \begin{itemize}[label=+]
+    \item<1-> Apply method to Kuramoto--Sivashinsky
+      equation\blfootnote{Image:
+      \text{en.wikipedia.org/wiki/Kuramoto--Sivashinsky\_equation}}
+      \begin{equation*}
+        u_t + u_{xx} + u_{xxxx} + u u_x = 0
+      \end{equation*}
+    \item<2-> Clarify application of asymptotics to PDEs
+    \item<3-> Add regularization on parameter magnitudes
+    \item<4-> Experiment with alternative definitions of error $E(c)$
+    \item<5-> Apply method to two-dimensional turbulence
+  \end{itemize}
+  \begin{figure}
+    \includegraphics[height=1.5in, keepaspectratio]{kse.png}
+  \end{figure}
+\end{frame}
 
 \begin{frame}
   \frametitle{References}
