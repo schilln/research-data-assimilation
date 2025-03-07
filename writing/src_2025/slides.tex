@@ -6,6 +6,10 @@
 \usepackage[backend=bibtex8]{biblatex}
 \addbibresource{src_2025.bib}
 
+\usepackage{subcaption}
+
+\graphicspath{ {./figures/} }
+
 \title{Identifying Models of Fluid Flow with Nudging and Gradient-based Optimization}
 \author{Nathan Schill}
 \institute{Brigham Young University}
@@ -22,12 +26,9 @@
 \renewcommand{\b}{\boldsymbol}
 \newcommand{\bu}{\boldsymbol u}
 \newcommand{\bv}{\boldsymbol v}
+\newcommand{\bw}{\boldsymbol w}
 
 \newcommand{\ol}{\overline}
-
-\newcommand{\paren}[1]{\left( #1 \right)}
-\renewcommand{\brack}[1]{\left[ #1 \right]}
-\renewcommand{\brace}[1]{\left{ #1 \right}}
 
 \begin{document}
 
@@ -42,6 +43,7 @@
     \omega & \quad \text{vorticity} \\
     \psi & \quad \text{streamfunction}
   \end{align*}
+  ``True'' system state
   \begin{equation}
     \begin{gathered}
       \nabla^2 \psi = - \omega \\
@@ -51,10 +53,24 @@
     \end{gathered}
   \end{equation}
 
-  \vskip 1.5em
+  \begin{figure}
+    \centering
+    \includegraphics[width=3cm, height=3cm, keepaspectratio]{placeholder.png}
+    % One of Karan's figures
+  \end{figure}
+\end{frame}
 
-  Apply low-pass filter (sharp cut-off in frequency domain)...
-  \pause
+\begin{frame}
+  \frametitle{Goal}
+  Wish: simulate every atom continuously
+  % \pause
+
+  Reality: simulate on a coarse spatial and temporal grid
+  \newline
+  % \pause
+
+  Apply low-pass filter to true system equation to simulate coarse resolution
+  of simulation
   \begin{equation}
     \begin{gathered}
       \nabla^2 \ol \psi = - \ol \omega \\
@@ -62,12 +78,50 @@
       = \frac1{Re} \nabla^2 \ol \omega - \ol f - r \ol \omega
       + \beta \frac{\partial \ol \psi}{\partial x}
       - \underbrace{
-        \brack{\ol{\mathcal N(\omega, \psi)}
+        \bbrack*{\ol{\mathcal N(\omega, \psi)}
         - \mathcal N(\ol \omega, \ol \psi)}
         % }_{\text{subgrid-scale (\textcolor{red}{SGS}) term}}
       }_{\text{subgrid-scale (} \textcolor{red}{\text{SGS}} \text{) term}}
     \end{gathered}
   \end{equation}
+
+  \begin{figure}
+    \centering
+    \begin{subfigure}{0.45\textwidth}
+      \centering
+      \includegraphics[width=3cm, height=3cm, keepaspectratio]{placeholder.png}
+      % One of Karan's figures
+    \end{subfigure}
+    \begin{subfigure}{0.45\textwidth}
+      \centering
+      \includegraphics[width=3cm, height=3cm, keepaspectratio]{placeholder.png}
+      % One of Karan's figures
+    \end{subfigure}
+  \end{figure}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Question}
+
+  \textcolor{gray}{
+    \begin{equation*}
+      \begin{gathered}
+        \nabla^2 \ol \psi = - \ol \omega \\
+        \frac{\partial \ol \omega}{\partial t} + \mathcal N(\ol \omega, \ol \psi)
+        = \frac1{Re} \nabla^2 \ol \omega - \ol f - r \ol \omega
+        + \beta \frac{\partial \ol \psi}{\partial x}
+        - \underbrace{
+          \bbrack*{\ol{\mathcal N(\omega, \psi)}
+          - \mathcal N(\ol \omega, \ol \psi)}
+          % }_{\text{subgrid-scale (\textcolor{red}{SGS}) term}}
+        }_{\text{subgrid-scale (} \textcolor{red}{\text{SGS}} \text{) term}}
+      \end{gathered}
+    \end{equation*}
+  }
+
+  \begin{block}{Question}
+    How do we \textit{estimate} an optimal SGS term?
+  \end{block}
 \end{frame}
 
 \section{More on the parameter estimation framework}
@@ -75,9 +129,9 @@
 \begin{frame}
   \frametitle{True system}
   ``True'' system state $\bu: \Omega \times [a, b] \rightarrow \R^n$
-  \begin{equation}
+  \begin{equation*}
     \frac{\partial \bu}{\partial t} + F(\bu, \gamma) = 0
-  \end{equation}
+  \end{equation*}
   \begin{align*}
     &\gamma \in \R^p &&\text{true parameters} \\
     &F: \R^n \times \R^p \rightarrow \R^n &&\text{function defining true
@@ -91,17 +145,17 @@
   \frametitle{Estimated system}
   \textcolor{gray}{
     ``True'' system state $\bu: \Omega \times [a, b] \rightarrow \R^n$
-    \begin{equation}
+    \begin{equation*}
       \frac{\partial \bu}{\partial t} + F(\bu, \gamma) = 0
-    \end{equation}
+    \end{equation*}
   }
 
   \vskip 0.5em
 
   Estimated, ``nudged'' system state $\bv: \Omega \times [a, b] \rightarrow \R^n$
-  \begin{equation}
+  \begin{equation*}
     \frac{\partial \bv}{\partial t} + G(\bv, c) = \mu I_h(\bu - \bv)
-  \end{equation}
+  \end{equation*}
   \begin{align*}
     &G: \R^n \times \R^{\textcolor{red}q} \rightarrow \R^n &&\text{function
     defining estimated differential equation} \\
@@ -111,13 +165,67 @@
   \end{align*}
 \end{frame}
 
+\begin{frame}
+  \frametitle{Define error and derivative}
+  Define an error between the true and estimated states; for example,
+  \begin{equation*}
+    E(c) \coloneq \frac12 \norm*{I_h(\bv - \bu)}^2 \bigg \lvert_{t=t_0}
+    = \frac12 \innerproduct*{I_h(\bv - \bu), I_h(\bv - \bu)} \bigg \lvert_{t=t_0}
+  \end{equation*}
+  % \pause
+
+  Differentiate with respect to the $i$th parameter, $c_i$:
+  \begin{equation*}
+    \frac{\partial}{\partial c_i} E(c) = \innerproduct*{I_h(\bv - \bu),
+    I_h \bw_i} \bigg \lvert_{t=t_0}
+  \end{equation*}
+  where $\bw_i \coloneq \frac{\partial \bv}{\partial c_i}$ is the $i$th
+  \textit{sensitivity}.
+  % \pause
+
+  If we can compute $\bw_i$, we can perform gradient descent to minimize error.
+\end{frame}
+
+\begin{frame}
+  \frametitle{Estimate $\bw_i$}
+  Some boring differentiation
+  \begin{alignat*}{4}
+    \frac{\partial}{\partial c_i} \left(\frac{\partial \bv}{\partial t}\right.
+      &+ G(\bv, c)
+    &&&&= \mu I_h(\bu - \bv)\bigg) \\
+    % \frac{\partial}{\partial t} \frac{\partial \bv}{\partial c_i}
+    % &+ \frac{\partial}{\partial \bv} G(\bv, c) \frac{\partial \bv}{\partial c_i}
+    % &&+ \frac{\partial}{\partial c_i} G(\bv, c)
+    % &&= \mu I_h\frac{\partial \bv}{\partial c_i} \\
+    \dot \bw_i
+    &+ \frac{\partial G}{\partial \bv} \bw_i
+    &&+ G_{c_i}(\bv, c)
+    &&= \mu I_h \bw_i
+  \end{alignat*}
+  % \pause
+
+  Estimate $\bw_i$ asymptotically as $\mu \rightarrow \infty$ by assuming
+  \begin{equation*}
+    \bw_i = \bw_i^{0} + \frac1\mu \bw_i^{1} + \frac1{\mu^2} \bw_i^{2} + \cdots
+  \end{equation*}
+  and equating like terms in $\mu$.
+  % \pause
+
+  \vskip 0.5em
+
+  A scaling of time $\tau = \mu t$ and an application of Watson's Lemma yield
+  \begin{equation*}
+    I_h \bw_i(t) \sim - \frac1\mu I_h G_{c_i}(\bv(t), c)
+  \end{equation*}
+\end{frame}
+
 \section{Steps}
 
-\subsection{Write}
+\subsection{Write code}
 
-\subsection{Test on ODEs}
+\subsection{Test on ordinary differential equations}
 
-\subsection{Test on PDEs}
+\subsection{Test on partial differential equations}
 
 \section{Current and future work}
 
