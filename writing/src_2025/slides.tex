@@ -46,6 +46,7 @@
 
 \begin{frame}
   \frametitle{Acknowledgement}
+  \pause
   \begin{block}{Fact}
     Dr. \!Whitehead is in Indonesia.
   \end{block}
@@ -91,10 +92,10 @@
 
 \begin{frame}
   \frametitle{Problem}
-  Wish: simulate every atom continuously
+  Wish: simulate every atom continuously; parameters known
   \pause
 
-  Reality: simulate on a coarse spatial and temporal grid
+  Reality: simulate on coarse spatial and temporal grid; parameters unknown
   \newline
   \pause
 
@@ -117,7 +118,18 @@
 
 \begin{frame}
   \frametitle{Approximation}
-  \begin{equation}
+
+  \textcolor{gray}{
+    ``True'' system state
+    \begin{gather*}
+      \frac{\partial \omega}{\partial t} + \mathcal N(\omega, \psi)
+      = \frac1{Re} \nabla^2 \omega - f - r \omega
+      + \beta \frac{\partial \psi}{\partial x}, \qquad \nabla^2 \psi = - \omega
+    \end{gather*}
+  }
+
+  Estimated system state
+  \begin{equation*}
     \begin{gathered}
       \nabla^2 \ol \psi = - \ol \omega \\
       \frac{\partial \ol \omega}{\partial t} + \mathcal N(\ol \omega, \ol \psi)
@@ -126,10 +138,9 @@
       - \underbrace{
         \bbrack*{\ol{\mathcal N(\omega, \psi)}
         - \mathcal N(\ol \omega, \ol \psi)}
-        % }_{\text{subgrid-scale (\textcolor{red}{SGS}) term}}
       }_{\text{subgrid-scale (} \textcolor{red}{\text{SGS}} \text{) term}}
     \end{gathered}
-  \end{equation}
+  \end{equation*}
   \pause
 
   \begin{block}{Question}
@@ -262,6 +273,7 @@
     \includegraphics[width=0.9\textwidth, keepaspectratio]{wave_1d_params.pdf}
   \end{figure}
   \vskip -1em
+  \pause
   \begin{figure}
     \centering
     \begin{subfigure}{0.42\textwidth}
