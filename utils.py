@@ -172,7 +172,7 @@ def _run_update_singlestep(
         true0, nudged0 = true[-1], nudged[-1]
 
         # Update parameters
-        if t_begin_updates is not None and t_begin_updates <= tf:
+        if t_begin_updates is None or t_begin_updates <= tf:
             system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
         cs.append(system.cs)
         lr_scheduler.step()
@@ -242,7 +242,7 @@ def _run_update_multistep(
     true0, nudged0 = true[-solver.k :], nudged[-solver.k :]
 
     # Update parameters
-    if t_begin_updates is not None and t_begin_updates <= tf:
+    if t_begin_updates is None or t_begin_updates <= tf:
         system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
     cs.append(system.cs)
     lr_scheduler.step()
@@ -268,7 +268,7 @@ def _run_update_multistep(
         true0, nudged0 = true[-solver.k :], nudged[-solver.k :]
 
         # Update parameters
-        if t_begin_updates is not None and t_begin_updates <= tf:
+        if t_begin_updates is None or t_begin_updates <= tf:
             system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
         cs.append(system.cs)
         lr_scheduler.step()
