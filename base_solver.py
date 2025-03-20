@@ -97,8 +97,8 @@ class Solver:
         N = len(tls)
 
         # Store the solution at every step.
-        true = jnp.full((N, *true0.shape), jnp.inf)
-        nudged = jnp.full((N, *nudged0.shape), jnp.inf)
+        true = jnp.full((N, *true0.shape), jnp.inf, dtype=true0.dtype)
+        nudged = jnp.full((N, *nudged0.shape), jnp.inf, dtype=nudged0.dtype)
 
         # Set initial state.
         true = true.at[0].set(true0)
