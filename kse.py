@@ -48,7 +48,13 @@ class KSE(System):
 
     def estimated_ode(self, cs: jndarray, nudged: jndarray) -> jndarray:
         # Note `nudged` should be in frequency domain.
-        return self.L(cs, nudged) + self.N(cs, nudged)
+        # return self.L(cs, nudged) + self.N(cs, nudged)
+
+        s = nudged
+        d = self.d
+        f = fft.irfft
+        p0, p1, p2 = cs
+        return -(p0 * f(d(s, 2)) + p1 * f(s) * f(d(s, 1)) + p2 * f(d(s, 4)))
 
     def d(self, s: jndarray, m: jndarray) -> jndarray:
         """Compute mth spatial derivative of the state.
@@ -94,9 +100,9 @@ class KSE(System):
         _, p1, _ = ps
 
         # Alternative computation that runs but the solution looks different
-        # return -p2 * fft.rfft(fft.irfft(s) * fft.irfft(self.d(s, 1)))
+        # return -p1 * fft.rfft(fft.irfft(s) * fft.irfft(self.d(s, 1)))
 
-        return -p1 * jnp.pi * 1j * self._k * fft.rfft(fft.irfft(s) ** 2)
+        return -p1 / 2 * self.d(fft.rfft(fft.irfft(s) ** 2), 1)
 
     def L(self, ps: jndarray, s: jndarray):
         d = self.d
@@ -134,7 +140,7 @@ class SemiImplicitRK3(SinglestepSolver):
     def _step_factory(self):
         def step(i, vals):
             system = self.system
-            L, N = system.L, system.N
+            L, N, s_ = system.L, system.N, system.observed_slice
             gs = system.gs
 
             (true, nudged), (dt, cs) = vals
@@ -156,8 +162,8 @@ class SemiImplicitRK3(SinglestepSolver):
                     1 + dtt / 2 * system.L_coeffs(cs)
                 )
 
-            next_n = next_n.at[:].subtract(
-                dt * self.system.μ * (next_n - next_t)
+            next_n = next_n.at[s_].subtract(
+                dt * self.system.μ * (next_n[s_] - next_t[s_])
             )
 
             true = true.at[i].set(next_t)
