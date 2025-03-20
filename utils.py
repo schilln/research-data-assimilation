@@ -27,6 +27,8 @@ def run_update(
     optimizer: Callable[[jndarray, jndarray], jndarray]
     | base_optim.Optimizer
     | None = None,
+    lr_scheduler: base_optim.LRScheduler = base_optim.DummyLRScheduler,
+    t_begin_updates: float | None = None,
     return_all: bool = False,
 ) -> tuple[jndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Use `solver` to run `system` and update parameter values with
@@ -61,6 +63,10 @@ def run_update(
         Note that an instance of `base_optim.Optimizer` implements this
         interface.
         If None, defaults to `base_optim.LevenbergMarquardt`.
+    lr_scheduler
+        Instance of `base_optim.LRScheduler` to update optimizer learning rate.
+    t_begin_updates: float | None = None,
+        Perform parameter updates after this time.
     return_all
         If true, return true and nudged states for entire simulation.
 
@@ -99,6 +105,8 @@ def run_update(
             true0,
             nudged0,
             optimizer,
+            lr_scheduler,
+            t_begin_updates,
             return_all,
         )
     elif isinstance(solver, base_solver.MultistepSolver):
@@ -112,6 +120,8 @@ def run_update(
             true0,
             nudged0,
             optimizer,
+            lr_scheduler,
+            t_begin_updates,
             return_all,
         )
     else:
@@ -133,6 +143,8 @@ def _run_update_singlestep(
     optimizer: Callable[[jndarray, jndarray], jndarray]
     | base_optim.Optimizer
     | None = None,
+    lr_scheduler: base_optim.LRScheduler = base_optim.DummyLRScheduler,
+    t_begin_updates: float | None = None,
     return_all: bool = False,
 ) -> tuple[jndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Implementation of `run_update` for non-multistep solvers (e.g., RK4),
@@ -160,8 +172,10 @@ def _run_update_singlestep(
         true0, nudged0 = true[-1], nudged[-1]
 
         # Update parameters
-        system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
+        if t_begin_updates is not None and t_begin_updates <= tf:
+            system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
         cs.append(system.cs)
+        lr_scheduler.step()
 
         t0 = tls[-1]
         tf = t0 + t_relax
@@ -201,6 +215,8 @@ def _run_update_multistep(
     optimizer: Callable[[jndarray, jndarray], jndarray]
     | base_optim.Optimizer
     | None = None,
+    lr_scheduler: base_optim.LRScheduler = base_optim.DummyLRScheduler,
+    t_begin_updates: float | None = None,
     return_all: bool = False,
 ) -> tuple[jndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Implementation of `run_update` for multistep solvers (e.g.,
@@ -226,8 +242,10 @@ def _run_update_multistep(
     true0, nudged0 = true[-solver.k :], nudged[-solver.k :]
 
     # Update parameters
-    system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
+    if t_begin_updates is not None and t_begin_updates <= tf:
+        system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
     cs.append(system.cs)
+    lr_scheduler.step()
 
     t0 = tls[-1]
     tf = t0 + t_relax
@@ -250,8 +268,10 @@ def _run_update_multistep(
         true0, nudged0 = true[-solver.k :], nudged[-solver.k :]
 
         # Update parameters
-        system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
+        if t_begin_updates is not None and t_begin_updates <= tf:
+            system.cs = optimizer(true[-1][system.observed_slice], nudged[-1])
         cs.append(system.cs)
+        lr_scheduler.step()
 
         t0 = tls[-1]
         tf = t0 + t_relax

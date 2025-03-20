@@ -188,6 +188,8 @@ class ExponentialLR(LRScheduler):
 
         Parameters
         ----------
+        optimizer
+            An instance of `Optimizer` with a `learning_rate` attribute.
         gamma
             Multiply the learning rate of `optimizer` by `gamma` with every call
             to `step`.
@@ -212,6 +214,8 @@ class MultiStepLR(LRScheduler):
 
         Parameters
         ----------
+        optimizer
+            An instance of `Optimizer` with a `learning_rate` attribute.
         milestones
             For each milestone, update the learning rate after that many calls
             to `step`.
