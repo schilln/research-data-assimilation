@@ -18,7 +18,7 @@ class Optimizer:
         """Abstract base class for optimizers of `System`s to compute updated
         parameter values.
 
-        Subclasses should implement `__call__`.
+        Subclasses should implement `step`.
 
         They may optionally override `__init__` (such as to store other
         algorithm parameters as attributes), but should call
@@ -30,11 +30,31 @@ class Optimizer:
             Instance of `System` whose unknown parameters (`system.cs`) are to
             be optimized
 
+        Methods
+        -------
+        __call__
+
         Abstract Methods
         ----------------
-        __call__
+        step
         """
         self._system = system
+
+    def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        """Compute the step to take to update the parameters of `system`.
+
+        Parameters
+        ----------
+        observed_true
+            The observed portion of the true system's state
+        nudged
+            The nudged system's state
+
+        Returns
+        -------
+        step
+            The vector to add to `system.cs` to obtain the new parameters
+        """
 
     def __call__(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
         """Compute the new parameter values following one step of the
@@ -52,7 +72,7 @@ class Optimizer:
         new_cs
             The new values for `system.cs`
         """
-        raise NotImplementedError()
+        return self.system.cs + jnp.real(self.step(observed_true, nudged))
 
     # The following attribute is read-only.
     system = property(lambda self: self._system)
@@ -91,9 +111,9 @@ class PartialOptimizer(Optimizer):
         self.mask = jnp.zeros(n, dtype=bool)
         self.mask = self.mask.at[param_idx].set(True)
 
-    def __call__(self, observed_true, nudged):
-        update = self.optimizer(observed_true, nudged)
-        return jnp.where(self.mask, update, self.system.cs)
+    def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        update = self.optimizer.step(observed_true, nudged)
+        return jnp.where(self.mask, update, 0)
 
     def __getattr__(self, name):
         """For attributes that aren't defined in this class, route access to the
@@ -122,18 +142,17 @@ class GradientDescent(Optimizer):
         learning_rate
             The learning rate to use in gradient descent
         """
-
         super().__init__(system)
         self.learning_rate = learning_rate
 
-    def __call__(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+    def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
         diff = (
             nudged[self.system.observed_slice].ravel() - observed_true.ravel()
         )
         w = self.system.compute_w(nudged)
         gradient = diff @ jnp.reshape(w.T, (-1, w.shape[0]))
 
-        return self.system.cs - self.learning_rate * gradient
+        return -self.learning_rate * gradient
 
 
 class LevenbergMarquardt(Optimizer):
@@ -153,7 +172,7 @@ class LevenbergMarquardt(Optimizer):
         self.learning_rate = learning_rate
         self.lam = lam
 
-    def __call__(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+    def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
         diff = (
             nudged[self.system.observed_slice].ravel() - observed_true.ravel()
         )
@@ -164,7 +183,8 @@ class LevenbergMarquardt(Optimizer):
         step = jnp.linalg.solve(
             mat + self.lam * jnp.eye(len(gradient)), gradient
         )
-        return self.system.cs - self.learning_rate * jnp.real(step)
+
+        return -self.learning_rate * step
 
 
 class LRScheduler:
