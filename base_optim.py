@@ -4,8 +4,10 @@ instance of `base_system.System`.
 Should also work with `separate_base_system.System`.
 """
 
+from collections.abc import Callable
 from collections import Counter
 
+import jax
 from jax import numpy as jnp
 
 from base_system import System
@@ -185,6 +187,144 @@ class LevenbergMarquardt(Optimizer):
         )
 
         return -self.learning_rate * step
+
+
+class Regularizer(Optimizer):
+    def __init__(
+        self,
+        system: System,
+        ord: int | float | Callable,
+        prior: jndarray | None = None,
+        callable_is_derivative: bool | None = None,
+    ):
+        """
+
+        Parameters
+        ----------
+        ord
+            If a float, take the regularizing function/penalty on the parameters
+            to be the `ord`-norm of the parameters.
+            If a callable, see `callable_is_derivative`.
+        prior
+            The prior expected values of the parameters, i.e., distance of the
+            parameters from the prior will be penalized.
+            If not given or None, taken to be zero (as in typical
+            regularization).
+            Must be the same shape as `system.cs`.
+        callable_is_derivative
+            The following rules apply if `ord` is a callable:
+            If True, `ord` should return an array of the same size as the input
+            (i.e., as `system.cs`).
+            If False, `ord` is taken to be the regularizing function/penalty on
+            the parameters, and will be auto-differentiated to compute its
+            derivative with respect to the parameters.
+        """
+        if prior is None:
+            self._prior = jnp.zeros_like(system.cs)
+        else:
+            if prior.shape != system.cs.shape:
+                raise ValueError(
+                    "`prior` should have same shape as `system.cs`"
+                )
+            self._prior = prior
+
+        match ord:
+            case int() | float():
+                pass
+            case Callable() if callable_is_derivative is None:
+                raise ValueError(
+                    "`callable_is_derivative` must be a bool when `ord` is a "
+                    "callable"
+                )
+            case Callable() if callable_is_derivative:
+                if ord(system.cs).shape != system.cs.shape:
+                    raise ValueError(
+                        "`ord` must return an array of the same shape as the "
+                        "parameters `system.cs`"
+                    )
+            case Callable() if not callable_is_derivative:
+                if not jnp.isscalar(ord(system.cs)):
+                    raise ValueError(
+                        "`ord` must be scalar-valued since "
+                        "`callable_is_derivative` is False"
+                    )
+            case _:
+                raise ValueError("`ord` is an invalid type")
+
+        super().__init__(system)
+        self._ord = ord
+        self._callable_is_derivative = callable_is_derivative
+
+    def step(self, *_):
+        ord, prior = self.ord, self.prior
+        cs = self.system.cs
+        match ord:
+            case 2:
+                return -2 * (cs - prior)
+            case 1:
+                return -jnp.sign(cs - prior)
+            case int() | float():
+                # FutureFIXME: Evaluating at `cs - prior` might not be right.
+                return -jax.jacfwd(lambda ps: jnp.norm(ps, ord=ord))(cs - prior)
+            case Callable() if self.callable_is_derivative:
+                # FutureFIXME: Evaluating at `cs - prior` might not be right.
+                return -ord(cs - prior)
+            case Callable() if not self.callable_is_derivative:
+                # FutureFIXME: Evaluating at `cs - prior` might not be right.
+                return -jax.jacfwd(ord, holomorphic=True)(cs - prior)
+            case _:
+                raise ValueError("`self.ord` is no longer a valid value")
+
+    ord = property(lambda self: self._ord)
+    callable_is_derivative = property(lambda self: self._callable_is_derivative)
+    prior = property(lambda self: self._prior)
+
+
+class OptimizerChain(Optimizer):
+    def __init__(
+        self,
+        system: System,
+        learning_rate: float,
+        optimizers: list[Optimizer],
+        weights: list[float],
+    ):
+        """Use several `Optimizer`s together, such as gradient descent with
+        regularization.
+
+        Parameters
+        ----------
+        learning_rate
+            The amount by which to scale the total update/step size
+        optimizers
+            A list of `Optimizer`s whose updates to the parameters of `system`
+            will be summed.
+            It may be convenient to set the learning rate of each optimizer (if
+            available) to one, since this class also uses a learning rate and
+            relative weights.
+        weights
+            The relative weights to place on each optimizer's step. Each weight
+            will be divided by the sum of all weights so that sum of the weights
+            is one.
+        """
+        assert len(optimizers) == len(weights), (
+            "`optimizers` and `weights` should have same length"
+        )
+
+        super().__init__(system)
+        self.learning_rate = learning_rate
+        self._optimizers = optimizers
+        self._weights = jnp.array(weights) / sum(weights)
+
+    def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        return self.learning_rate * sum(
+            [
+                weight * optimizer.step(observed_true, nudged)
+                for weight, optimizer in zip(self.weights, self.optimizers)
+            ]
+        )
+
+    optimizers = property(lambda self: self._optimizers)
+    weights = property(lambda self: self._weights)
 
 
 class LRScheduler:
