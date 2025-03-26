@@ -1,0 +1,9 @@
+# Data assimilation dictionary
+
+coeffs
+derivs
+Kuramoto
+Levenberg
+Marquardt
+Singlestep
+Sivashinsky
