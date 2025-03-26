@@ -1,0 +1,8 @@
+# Python dictionary
+
+argnames
+cmap
+figsize
+jndarray
+ndarray
+zlim
