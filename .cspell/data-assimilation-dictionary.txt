@@ -1,0 +1,7 @@
+coeffs
+derivs
+Kuramoto
+Levenberg
+Marquardt
+Singlestep
+Sivashinsky
