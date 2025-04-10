@@ -189,6 +189,41 @@ class LevenbergMarquardt(Optimizer):
         return -self.learning_rate * step
 
 
+class ComplexLevenbergMarquardt(Optimizer):
+    def __init__(
+        self, system: System, learning_rate: float = 1e-3, lam: float = 1e-2
+    ):
+        """Perform the Levenberg–Marquardt algorithm of optimization.
+
+        Parameters
+        ----------
+        learning_rate
+            The learning rate to use in gradient descent
+        lam
+            Levenberg–Marquardt parameter
+        """
+        super().__init__(system)
+        self.learning_rate = learning_rate
+        self.lam = lam
+
+    def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        u, v = observed_true, nudged[self.system.observed_slice]
+        w = self.system.compute_w(nudged)
+
+        gradient = 1 / 2 * (w @ v.conj() + w.conj() @ v) - (w @ u.conj()).real
+
+        mat = jnp.outer(gradient, gradient)
+        step = jnp.linalg.solve(
+            mat + self.lam * jnp.eye(len(gradient)), gradient
+        )
+
+        # TODO: The above doesn't probably support multidimensional w, u, v the
+        # way the original does (with `ravel`).
+
+        # TODO: Why is this negated from before?
+        return self.learning_rate * step
+
+
 class Regularizer(Optimizer):
     def __init__(
         self,
