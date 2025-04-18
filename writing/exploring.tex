@@ -1,0 +1,40 @@
+\documentclass[12pt]{article}
+
+\newcommand{\commandprependpath}{}
+\usepackage{style}
+
+\title{Exploring}
+\author{Nathan Schill}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{align*}
+  I(u(t), v(t))
+  &= \frac12 \norm{v(t) - u(t)}_{\ell^2}^2 \qquad \text{(2.2) in
+  Josh's thesis} \\
+  &= \frac12 \inpr{v(t) - u(t), v(t) - u(t)} \\
+  &= \frac12 \bbrack*{\inpr{v(t), v(t)} - \inpr{v(t), u(t)} -
+  \overline{\inpr{v(t), u(t)}} + \inpr{u(t), u(t)}} \\
+  &= \frac12 \inpr{v(t), u(t)} - \Re{\inpr{v(t), u(t)}} + \frac12
+  \inpr{u(t), u(t)}
+\end{align*}
+
+Assuming $\frac {dI} {dt} \Big|_{t=T} \approx 0$, then we write the
+error $E(c) \coloneqq I(u(T), v(t))$.
+Let $u, v: \R \rightarrow \C^n$, $c \in \R^m$.
+Write $r = r(c) = v(T) - u(T)$, $r: \R^m \rightarrow \C^n$.
+Then $\frac{dr}{dc_j} \in \C^n$.
+\begin{align*}
+  E(c)
+  &= \frac12 \norm{v(T) - u(T)}_{\ell^2}^2 = \frac12 \norm{r}^2  =
+  \frac12 \inpr{r, r} \\
+  \frac{dE}{dc_j}
+  &= \frac12 \bbrack*{
+    \inpr*{\frac{dr}{dc_j}, r} + \inpr*{r, \frac{dr}{dc_j}}
+  } \\
+  &= \Re \inpr*{r, \frac{dr}{dc_j}}
+\end{align*}
+
+\end{document}
