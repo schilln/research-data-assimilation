@@ -170,16 +170,17 @@ class GradientDescent(Optimizer):
         return -self.learning_rate * gradient
 
 
-class LevenbergMarquardt(Optimizer):
+class WeightedLevenbergMarquardt(Optimizer):
     def __init__(
         self, system: System, learning_rate: float = 1e-3, lam: float = 1e-2
     ):
-        """Perform the Levenberg–Marquardt algorithm of optimization.
+        """Perform a weighted version of the Levenberg–Marquardt modification of
+        Gauss–Newton.
 
         Parameters
         ----------
         learning_rate
-            The learning rate to use in gradient descent
+            The learning rate (scalar by which to multiply the step)
         lam
             Levenberg–Marquardt parameter
         """
@@ -192,11 +193,37 @@ class LevenbergMarquardt(Optimizer):
 
         mat = jnp.outer(gradient, gradient)
 
-        # TODO: I think this is what Gauss–Newton should actually be.
-        # w = self.system.compute_w(nudged)
-        # m = w.shape[0]
-        # w_flat = w.reshape(m, -1)
-        # mat = jnp.real(w_flat.conj() @ w_flat.T)
+        step = jnp.linalg.solve(
+            mat + self.lam * jnp.eye(mat.shape[0]), gradient
+        )
+
+        return -self.learning_rate * step
+
+
+class LevenbergMarquardt(Optimizer):
+    def __init__(
+        self, system: System, learning_rate: float = 1e-3, lam: float = 1e-2
+    ):
+        """Perform the Levenberg–Marquardt modification of Gauss–Newton.
+
+        Parameters
+        ----------
+        learning_rate
+            The learning rate (scalar by which to multiply the step)
+        lam
+            Levenberg–Marquardt parameter
+        """
+        super().__init__(system)
+        self.learning_rate = learning_rate
+        self.lam = lam
+
+    def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        gradient = self.compute_gradient(observed_true, nudged)
+
+        w = self.system.compute_w(nudged)
+        m = w.shape[0]
+        w_flat = w.reshape(m, -1)
+        mat = jnp.real(w_flat.conj() @ w_flat.T)
 
         step = jnp.linalg.solve(
             mat + self.lam * jnp.eye(mat.shape[0]), gradient
