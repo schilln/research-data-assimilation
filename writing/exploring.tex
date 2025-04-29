@@ -1,0 +1,120 @@
+\documentclass[12pt]{article}
+
+\newcommand{\commandprependpath}{}
+\usepackage{style}
+
+\usepackage{hyperref}
+
+\title{Exploring}
+\author{Nathan Schill}
+\date{}
+
+\begin{document}
+\maketitle
+
+Let $u, v: \R \rightarrow \C^n$, $c \in \R^m$.
+
+The error between the true and nudged states at time $t$ is computed
+\begin{align*}
+  I(u(t), v(t))
+  &= \frac12 \norm{v(t) - u(t)}_{\ell^2}^2 \qquad \text{(2.2) in
+  Josh's thesis}.
+\end{align*}
+
+For some large time $T$, assuming $\left.\frac {dI} {dt}
+\right|_{t=T} \approx 0$, we write the error $E(c) \coloneqq I(u(T), v(T))$.
+Write $r = r(c) = v(T) - u(T)$, $r: \R^m \rightarrow \C^n$.
+Then $\frac{dr}{dc_j} \in \C^n$.
+\begin{align*}
+  E(c)
+  &= \frac12 \norm{v(T) - u(T)}^2_{\ell^2}= \frac12 \norm{r}^2_{\ell^2}  =
+  \frac12 \inpr{r, r} \\
+  \frac{dE}{dc_j}
+  &= \frac12 \bbrack*{
+    \inpr*{\frac{dr}{dc_j}, r} + \inpr*{r, \frac{dr}{dc_j}}
+  } \\
+  &= \Re \inpr*{\frac{dr}{dc_j}, r} = \Re \paren*{r^* \frac{dr}{dc_j}}
+  = \Re \sum_{i=1}^n \overline r_i \frac{dr_i}{dc_j}.
+\end{align*}
+
+Gauss--Newton computes the parameter step direction
+\begin{equation*}
+  -\bbrack*{\frac{d^2 E}{dc^2}}^{-1} \frac{dE}{dc}.
+\end{equation*}
+with an approximation for $\frac{d^2 E}{dc^2}$.
+Write the matrix $J = [J_{ij}]$,
+\begin{equation*}
+  J_{ij} \coloneqq \frac{dr_i}{dc_j} = \frac d{dc_j} \paren{v_i(T) -
+  u_i(T)} = \left.\frac{dv_i}{dc_j} \right|_{t=T} = (w_j)_i
+\end{equation*}
+where $w_j = \frac{dv}{dc_j} = \frac{dr}{dc_j}$ is the $i$th
+sensitivity and so $J = [w_1 \cdots w_m]$.
+
+% tex-fmt: off
+Typical Gauss--Newton (with help from
+  \href{https://en.wikipedia.org/wiki/Gauss%E2%80%93Newton_algorithm#Derivation_from_Newton's_method}{Wikipedia}),
+% tex-fmt: on
+adapted (I think) to complex values:
+\begin{align*}
+  \frac{d^2E}{dc_k dc_j}
+  &= \Re \sum_{i=1}^n \bbrack*{
+    \frac{d \overline{r_i}}{dc_k} \frac{dr_i}{dc_j} +
+    \overline{r_i} \frac{d^2 r_i}{dc_k dc_j}
+  } \\
+  &\approx \Re \sum_{i=1}^n \bbrack*{
+    \frac{d \overline{r_i}}{dc_k} \frac{dr_i}{dc_j}
+  } \\
+  &= \Re \sum_{i=1}^n J_{ij} \overline{J_{ik}}
+  = \Re \sum_{i=1}^n J_{ij} J_{ki}^* \\
+  &= \Re \sum_{i=1}^n J_{ki}^* J_{ij}
+  = \Re \bbrack{J^* J}_{kj} \\
+  \frac{d^2 E}{dc^2}
+  &\approx \Re \paren{J^* J}.
+\end{align*}
+
+My ``Gauss–Newton'' was computing (noting that $E(c): \R^m
+\rightarrow \R$, so $\frac{dE}{dc} \in M_{1,m}(\R)$)
+\begin{align*}
+  \frac{dE}{dc}
+  &= \Re
+  \begin{bmatrix}
+    r^* \frac{dr}{dc_1} & \cdots & r^* \frac{dr}{dc_m}
+  \end{bmatrix} \\
+  &= \Re \paren*{r^*
+    \begin{bmatrix}
+      \frac{dr}{dc_1} & \cdots & \frac{dr}{dc_m}
+  \end{bmatrix}} \\
+  &= \Re \paren{r^* J} \\
+  \frac{d^2 E}{dc^2}
+  &\sim \frac{dE}{dc}^\top \frac{dE}{dc} \\
+  &= \Re \paren{r^* J}^\top \Re \paren{r^* J} \\
+  &= \Re \paren{J^\top \overline r} \Re \paren{r^* J} \\
+  &= \Re \paren{J^* r} \Re \paren{r^* J} \\
+  &\sim \Re \paren{J^* r r^* J} \qquad \text{(this isn't true but what
+  it looks like)},
+\end{align*}
+which is like Gauss--Newton but with the $r r^*$ outer product stuck
+between the $J$ matrices.
+
+\subsection{Extra computations I don't want to throw away}
+
+\begin{align*}
+  I(u(t), v(t))
+  &= \frac12 \norm{v(t) - u(t)}_{\ell^2}^2 \qquad \text{(2.2) in
+  Josh's thesis} \\
+  &= \frac12 \inpr{v(t) - u(t), v(t) - u(t)} \\
+  &= \frac12 \bbrack*{\inpr{v(t), v(t)} - \inpr{v(t), u(t)} -
+  \overline{\inpr{v(t), u(t)}} + \inpr{u(t), u(t)}} \\
+  &= \frac12 \inpr{v(t), v(t)} - \Re{\inpr{v(t), u(t)}} + \frac12
+  \inpr{u(t), u(t)}
+\end{align*}
+
+\begin{align*}
+  E(c)
+  &= \frac12 \norm{v(T) - u(T)}_{\ell^2}^2 = \frac12 \norm{r}^2  =
+  \frac12 \inpr{r, r} = \frac12 r^* r \\
+  &= \frac12 \sum_{i=1}^n \abs{r_i}^2 = \frac12 \sum_{i=1}^n r_i
+  \overline{r_i}
+\end{align*}
+
+\end{document}

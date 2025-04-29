@@ -48,13 +48,10 @@ class KSE(System):
 
     def estimated_ode(self, cs: jndarray, nudged: jndarray) -> jndarray:
         # Note `nudged` should be in frequency domain.
-        return self.L(cs, nudged) + self.N(cs, nudged)
-
-        s = nudged
-        d = self.d
-        f = fft.irfft
-        p0, p1, p2 = cs
-        return -(p0 * f(d(s, 2)) + p1 * f(s) * f(d(s, 1)) + p2 * f(d(s, 4)))
+        # TODO: It seems a negative sign out front is needed, but it doesn't
+        # seem it should be necessary... Did I implement the integrating code
+        # incorrectly?
+        return -(self.L(cs, nudged) + self.N(cs, nudged))
 
     def d(self, s: jndarray, m: jndarray) -> jndarray:
         """Compute mth spatial derivative of the state.
@@ -89,31 +86,6 @@ class KSE(System):
 
     @partial(jax.jit, static_argnames="self")
     def _compute_w(self, cs: jndarray, nudged: jndarray) -> jndarray:
-        # s = nudged
-        # d = self.d
-        # m0, m2 = self.L_derivs
-        # return (
-        #     jnp.stack(
-        #         [
-        #             -d(s, m0),
-        #             -1 / 2 * self.d(fft.rfft(fft.irfft(s) ** 2), 1),
-        #             -d(s, m2),
-        #         ]
-        #     )
-        #     .T[self.observed_slice]
-        #     .T / self.μ
-        # )
-
-        # s = nudged
-        # d = self.d
-        # f = fft.irfft
-        # return (
-        #     jnp.stack([-f(d(s, 2)), -f(s) * f(d(s, 1)), -f(d(s, 4))])
-        #     .T[self.observed_slice]
-        #     .T
-        #     / self.μ
-        # )
-
         return (
             jax.jacrev(self.estimated_ode, 0, holomorphic=True)(cs, nudged)[
                 self.observed_slice

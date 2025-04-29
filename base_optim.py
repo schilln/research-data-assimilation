@@ -76,6 +76,23 @@ class Optimizer:
         """
         return self.system.cs + jnp.real(self.step(observed_true, nudged))
 
+    def compute_gradient(
+        self, observed_true: jndarray, nudged: jndarray
+    ) -> jndarray:
+        """Compute the derivative of the error with respect to each parameter,
+        as in (2.8) of Josh's thesis.
+
+        Note this differs from (2.8) in that it handles complex-valued true and
+        nudged states.
+        """
+        diff = (
+            nudged[self.system.observed_slice].ravel() - observed_true.ravel()
+        )
+        w = self.system.compute_w(nudged)
+        m = w.shape[0]
+        gradient = jnp.real(diff.conj() @ w.T.reshape(-1, m))
+        return gradient
+
     # The following attribute is read-only.
     system = property(lambda self: self._system)
 
@@ -148,25 +165,22 @@ class GradientDescent(Optimizer):
         self.learning_rate = learning_rate
 
     def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
-        diff = (
-            nudged[self.system.observed_slice].ravel() - observed_true.ravel()
-        )
-        w = self.system.compute_w(nudged)
-        gradient = diff @ jnp.reshape(w.T, (-1, w.shape[0]))
+        gradient = self.compute_gradient(observed_true, nudged)
 
         return -self.learning_rate * gradient
 
 
-class LevenbergMarquardt(Optimizer):
+class WeightedLevenbergMarquardt(Optimizer):
     def __init__(
         self, system: System, learning_rate: float = 1e-3, lam: float = 1e-2
     ):
-        """Perform the Levenberg–Marquardt algorithm of optimization.
+        """Perform a weighted version of the Levenberg–Marquardt modification of
+        Gauss–Newton.
 
         Parameters
         ----------
         learning_rate
-            The learning rate to use in gradient descent
+            The learning rate (scalar by which to multiply the step)
         lam
             Levenberg–Marquardt parameter
         """
@@ -175,15 +189,44 @@ class LevenbergMarquardt(Optimizer):
         self.lam = lam
 
     def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
-        diff = (
-            nudged[self.system.observed_slice].ravel() - observed_true.ravel()
-        )
-        w = self.system.compute_w(nudged)
-        gradient = diff @ jnp.reshape(w.T, (-1, w.shape[0]))
+        gradient = self.compute_gradient(observed_true, nudged)
+
         mat = jnp.outer(gradient, gradient)
 
         step = jnp.linalg.solve(
-            mat + self.lam * jnp.eye(len(gradient)), gradient
+            mat + self.lam * jnp.eye(mat.shape[0]), gradient
+        )
+
+        return -self.learning_rate * step
+
+
+class LevenbergMarquardt(Optimizer):
+    def __init__(
+        self, system: System, learning_rate: float = 1e-3, lam: float = 1e-2
+    ):
+        """Perform the Levenberg–Marquardt modification of Gauss–Newton.
+
+        Parameters
+        ----------
+        learning_rate
+            The learning rate (scalar by which to multiply the step)
+        lam
+            Levenberg–Marquardt parameter
+        """
+        super().__init__(system)
+        self.learning_rate = learning_rate
+        self.lam = lam
+
+    def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        gradient = self.compute_gradient(observed_true, nudged)
+
+        w = self.system.compute_w(nudged)
+        m = w.shape[0]
+        w_flat = w.reshape(m, -1)
+        mat = jnp.real(w_flat.conj() @ w_flat.T)
+
+        step = jnp.linalg.solve(
+            mat + self.lam * jnp.eye(mat.shape[0]), gradient
         )
 
         return -self.learning_rate * step
