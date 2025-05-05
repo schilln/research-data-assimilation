@@ -9,6 +9,7 @@ from collections import Counter
 
 import jax
 from jax import numpy as jnp
+import optax
 
 from base_system import System
 
@@ -321,6 +322,29 @@ class Regularizer(Optimizer):
     ord = property(lambda self: self._ord)
     callable_is_derivative = property(lambda self: self._callable_is_derivative)
     prior = property(lambda self: self._prior)
+
+
+class OptaxWrapper(Optimizer):
+    def __init__(
+        self, system: System, optimizer: optax.GradientTransformationExtraArgs
+    ):
+        """Wrap a given Optax optimizer.
+
+        Parameters
+        ----------
+        optimizer
+            Instance of `optax.GradientTransformationExtraArgs`
+            For example, `optax.adam(learning_rate=1e-1)`.
+        """
+        super().__init__(system)
+        self.optimizer = optimizer
+        self.opt_state = self.optimizer.init(system.cs)
+
+    def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
+        gradient = self.compute_gradient(observed_true, nudged)
+
+        update, self.opt_state = self.optimizer.update(gradient, self.opt_state)
+        return update
 
 
 class OptimizerChain(Optimizer):
