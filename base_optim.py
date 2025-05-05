@@ -324,17 +324,20 @@ class Regularizer(Optimizer):
     prior = property(lambda self: self._prior)
 
 
-class Adam(Optimizer):
-    def __init__(self, system: System, start_learning_rate: float = 1e-3):
-        """Wrap the ADAM optimizer.
+class OptaxWrapper(Optimizer):
+    def __init__(
+        self, system: System, optimizer: optax.GradientTransformationExtraArgs
+    ):
+        """Wrap a given Optax optimizer.
 
         Parameters
         ----------
-        start_learning_rate
-            The initial learning rate
+        optimizer
+            Instance of `optax.GradientTransformationExtraArgs`
+            For example, `optax.adam(learning_rate=1e-1)`.
         """
         super().__init__(system)
-        self.optimizer = optax.adam(start_learning_rate)
+        self.optimizer = optimizer
         self.opt_state = self.optimizer.init(system.cs)
 
     def step(self, observed_true: jndarray, nudged: jndarray) -> jndarray:
