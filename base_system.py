@@ -69,7 +69,7 @@ class System:
         self._bs = bs
         self._observed_slice = observed_slice
 
-        self.cs = cs
+        self._cs = cs
 
     def f(
         self,
@@ -177,9 +177,13 @@ class System:
             jax.jacrev(self.estimated_ode, 0)(cs, nudged)[self.observed_slice].T
             / self.μ
         )
+    
+    def _set_cs(self, cs):
+        self._cs = cs
 
     # The following attributes are read-only.
     μ = property(lambda self: self._μ)
     gs = property(lambda self: self._gs)
     bs = property(lambda self: self._bs)
+    cs = property(lambda self: self._cs, _set_cs)
     observed_slice = property(lambda self: self._observed_slice)
