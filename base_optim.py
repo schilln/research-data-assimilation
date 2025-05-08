@@ -9,6 +9,7 @@ from collections import Counter
 
 import jax
 from jax import numpy as jnp
+import numpy as np
 import optax
 
 from base_system import System
@@ -241,7 +242,7 @@ class Regularizer(Optimizer):
         prior: jndarray | None = None,
         callable_is_derivative: bool | None = None,
     ):
-        """
+        """Use regularization on the parameters of `System`.
 
         Parameters
         ----------
@@ -392,6 +393,70 @@ class OptimizerChain(Optimizer):
 
     optimizers = property(lambda self: self._optimizers)
     weights = property(lambda self: self._weights)
+
+
+def pruned_factory(system_type: type[System]) -> type[System]:
+    """Return a 'pruned' variant of `system_type`.
+
+    If a parameter in `cs` of the system is to be set below its corresponding
+    threshold (in absolute value), it will be set to zero permanently.
+    """
+
+    class Pruned(system_type):
+        def __init__(
+            self, *args, threshold: float | jndarray | np.ndarray, **kwargs
+        ):
+            """
+
+            Parameters
+            ----------
+            threshold
+                If a float, all parameters `cs` are compared against this common
+                value.
+                If an array, each parameter is compared against the value in
+                `cs` in the same position.
+            """
+            super().__init__(*args, **kwargs)
+
+            if isinstance(threshold, jndarray) or isinstance(
+                threshold, np.ndarray
+            ):
+                if self._cs.shape != threshold.shape:
+                    raise ValueError(
+                        "`threshold` must have same shape as `system.cs`"
+                    )
+            self.threshold = threshold
+
+            self._zero = np.zeros_like(self.cs, dtype=bool)
+
+        def _set_cs(self, cs):
+            zero = jnp.abs(self.cs) < self.threshold
+            self._cs = jnp.where(~zero, cs, 0)
+            self._zero[zero] = True
+
+        cs = property(
+            lambda self: self._cs, lambda self, value: self._set_cs(value)
+        )
+
+    doc = (
+        "This is a 'Pruned' version of the original class "
+        f"({system_type.__module__}.{system_type.__qualname__}); "
+        "that is, if a parameter in `self.cs` is to be set below its "
+        "corresponding threshold (in absolute value), it will be set to zero "
+        "permanently."
+    )
+
+    Pruned.__module__ = system_type.__module__
+    Pruned.__name__ = f"{system_type.__name__}_Pruned"
+    Pruned.__qualname__ = system_type.__qualname__
+    Pruned.__doc__ = (
+        doc
+        if system_type.__doc__ is None
+        else system_type.__doc__ + "\n\n" + doc
+    )
+    Pruned.__annotations__ = system_type.__annotations__
+
+    return Pruned
 
 
 class LRScheduler:
