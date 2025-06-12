@@ -418,21 +418,24 @@ def pruned_factory(system_type: type[System]) -> type[System]:
             """
             super().__init__(*args, **kwargs)
 
-            if isinstance(threshold, jndarray) or isinstance(
-                threshold, np.ndarray
-            ):
+            if isinstance(threshold, (jndarray, np.ndarray)):
                 if self._cs.shape != threshold.shape:
                     raise ValueError(
                         "`threshold` must have same shape as `system.cs`"
                     )
             self.threshold = threshold
 
-            self._zero = np.zeros_like(self.cs, dtype=bool)
+            # A mask in which True indicates the corresponding parameter should
+            # be set to zero.
+            self._set_zero = np.zeros_like(self.cs, dtype=bool)
 
         def _set_cs(self, cs):
+            # For parameters under the threshold, set the mask to True.
+            # Don't change the mask where it already was True.
             zero = jnp.abs(self.cs) < self.threshold
-            self._cs = jnp.where(~zero, cs, 0)
-            self._zero[zero] = True
+            self._set_zero[zero] = True
+
+            self._cs = jnp.where(self._set_zero, 0, cs)
 
         cs = property(
             lambda self: self._cs, lambda self, value: self._set_cs(value)
