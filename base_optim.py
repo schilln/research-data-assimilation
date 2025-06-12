@@ -400,11 +400,17 @@ def pruned_factory(system_type: type[System]) -> type[System]:
 
     If a parameter in `cs` of the system is to be set below its corresponding
     threshold (in absolute value), it will be set to zero permanently.
+    Optionally require that this occur at least a specified number of times
+    consecutively before setting a parameter to zero permanently.
     """
 
     class Pruned(system_type):
         def __init__(
-            self, *args, threshold: float | jndarray | np.ndarray, **kwargs
+            self,
+            *args,
+            threshold: float | jndarray | np.ndarray,
+            iterations: int | jndarray | np.ndarray | None = None,
+            **kwargs,
         ):
             """
 
@@ -415,6 +421,16 @@ def pruned_factory(system_type: type[System]) -> type[System]:
                 value.
                 If an array, each parameter is compared against the value in
                 `cs` in the same position.
+                To disable pruning for a parameter, set its threshold to zero.
+            iterations
+                Require each parameter to be less than its corresponding
+                threshold at least `iterations` times consecutively before
+                setting it to zero (permanently).
+                As with `threshold`, if an `int`, each parameter will be
+                use this common value, but if an array, then each parameter will
+                use it corresponding value.
+                If None, only one time being less than `threshold` is needed
+                to set a parameter to zero.
             """
             super().__init__(*args, **kwargs)
 
@@ -423,19 +439,48 @@ def pruned_factory(system_type: type[System]) -> type[System]:
                     raise ValueError(
                         "`threshold` must have same shape as `system.cs`"
                     )
-            self.threshold = threshold
+            self.threshold = np.array(threshold)
+
+            if isinstance(iterations, (jndarray, np.ndarray)):
+                if self._cs.shape != iterations.shape:
+                    raise ValueError(
+                        "`iterations` must have same shape as `system.cs`"
+                    )
+            self.iterations = (
+                None if iterations is None else np.array(iterations)
+            )
 
             # A mask in which True indicates the corresponding parameter should
             # be set to zero.
             self._set_zero = np.zeros_like(self.cs, dtype=bool)
 
+            # Count the number of times each parameter is below its threshold in
+            # a row.
+            self._counter = np.zeros_like(self.cs, dtype=int)
+
         def _set_cs(self, cs):
             # For parameters under the threshold, set the mask to True.
             # Don't change the mask where it already was True.
-            zero = jnp.abs(self.cs) < self.threshold
-            self._set_zero[zero] = True
+            below_threshold = np.abs(self.cs) < self.threshold
 
+            # Increment the counter to parameters below their threshold and
+            # reset to zero the counter for parameters not below their
+            # threshold.
+            if self.iterations is not None:
+                self._counter += below_threshold
+                self._counter[~below_threshold] = 0
+                at_least_counter = self._counter >= self.iterations
+            else:
+                at_least_counter = True
+
+            set_zero = below_threshold & at_least_counter
+            self._set_zero[set_zero] = True
             self._cs = jnp.where(self._set_zero, 0, cs)
+
+            # Reset the counter for parameters already set to zero (no point
+            # continuing to count).
+            if self.iterations is not None:
+                self._counter[self._set_zero] = 0
 
         cs = property(
             lambda self: self._cs, lambda self, value: self._set_cs(value)
