@@ -1,6 +1,10 @@
-"""
-`run_update` iteratively simulates a `System` and updates parameter values,
-returning the sequences of parameter values and nudged-vs-true errors.
+"""Helpful code for simulating systems and updating parameters.
+
+Functions
+---------
+run_update
+    Iteratively simulates a `System` and updates parameter values, returning the
+    sequences of parameter values and nudged-vs-true errors.
 """
 
 from collections.abc import Callable
