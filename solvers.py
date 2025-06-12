@@ -1,4 +1,13 @@
-"""Concrete implementations of `base_solver.Solver`."""
+"""Concrete implementations of `base_solver.Solver`.
+
+Classes
+-------
+RK4
+    Runge–Kutta 4
+TwoStepAdamsBashforth
+SolveIvp
+    Wraps scipy's `solve_ivp`
+"""
 
 from functools import partial
 

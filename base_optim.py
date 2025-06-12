@@ -2,6 +2,42 @@
 instance of `base_system.System`.
 
 Should also work with `separate_base_system.System`.
+
+Base Classes
+------------
+Optimizer
+    Abstract base class to implement algorithms for optimizing parameters
+LRScheduler
+    Abstract base class to implement learning rate scheduling
+
+Helpers
+--------------
+PartialOptimizer
+    Class that enables updates only to specified parameters and leaves others
+    unchanged
+Regularizer
+    Class that implements various regularization algorithms
+OptimizerChain
+    Class that chains together `Optimizers`, applying their steps sequentially,
+    e.g., an `Optimizer` followed by a `Regularizer`
+pruned_factory
+    Function that creates a "pruned" type of `System`, permanently setting to
+    zero parameters that fall below a threshold for a specified number of
+    iterations
+
+Classes Implementing Optimization Algorithms
+--------------------------------------------
+GradientDescent
+WeightedLevenbergMarquardt
+LevenbergMarquardt
+OptaxWrapper
+    Wraps a given optax optimizer as an `Optimizer`
+
+Classes Implementing Learning Rate Scheduling
+---------------------------------------------
+DummyLRScheduler
+ExponentialLR
+MultiStepLR
 """
 
 from collections.abc import Callable
@@ -120,7 +156,8 @@ class PartialOptimizer(Optimizer):
             (as determined from the ordering of `system.cs` for a given instance
             of `System`), one would use `np.array([0, 2])`.
         """
-        # Define the attributes that
+        # Define the attributes that belong to this class (versus those of the
+        # wrapped class) so they can be distinguished and routed properly.
         super().__setattr__(
             "_own_attrs", {"_system", "system", "optimizer", "mask"}
         )
@@ -402,6 +439,12 @@ def pruned_factory(system_type: type[System]) -> type[System]:
     threshold (in absolute value), it will be set to zero permanently.
     Optionally require that this occur at least a specified number of times
     consecutively before setting a parameter to zero permanently.
+
+    Parameters
+    ----------
+    system_type
+        The type of `System` (not an instance) to be wrapped, e.g., the
+        Lorenz '63 system.
     """
 
     class Pruned(system_type):
@@ -509,6 +552,9 @@ def pruned_factory(system_type: type[System]) -> type[System]:
 
 class LRScheduler:
     def __init__(self, optimizer: Optimizer):
+        """Given an `optimizer` with a `learning_rate` attribute, adjust its
+        learning rate according to some algorithm.
+        """
         self.optimizer = optimizer
 
     def step(self):
@@ -517,6 +563,9 @@ class LRScheduler:
 
 class DummyLRScheduler(LRScheduler):
     def __init__(self, *args, **kwargs):
+        """A dummy learning rate scheduler for testing with code that assumes
+        use of a scheduler.
+        """
         pass
 
     def step(self):
@@ -525,7 +574,8 @@ class DummyLRScheduler(LRScheduler):
 
 class ExponentialLR(LRScheduler):
     def __init__(self, optimizer: Optimizer, gamma: float = 0.99):
-        """
+        """Multiply the optimizer's learning rate by a factor each time the
+        method `step` is called.
 
         Parameters
         ----------
@@ -549,7 +599,8 @@ class MultiStepLR(LRScheduler):
         milestones: list[int] | tuple[int],
         gamma: float = 0.5,
     ):
-        """
+        """At each given milestone (number of iterations), multiply the learning
+        rate by a corresponding factor.
 
         Inspired by PyTorch's `MultiStepLR`
 
