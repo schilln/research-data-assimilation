@@ -1,0 +1,50 @@
+\documentclass[12pt]{article}
+
+\newcommand{\commandprependpath}{../}
+\usepackage{style}
+
+\title{Efficient implementation of on-the-fly system identification}
+\author{Nathan Schill}
+\date{July 24, 2025}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+  The ``on-the-fly'' (OTF) method is a gradient-based approach to equation discovery.
+  Given observational data, a data assimilation technique such as nudging, and an error metric, it computes an asymptotic approximation of a simulated system's error sensitivity with respect to unknown parameters and utilizes any gradient-based optimization algorithm to perform parameter updates.
+  These parameter updates may be done on- or offline, and the model may be of a precisely specified form or simply a library of possible terms with potentially nonlinear parameters.
+
+  We have developed a libary of Python code that requires only observational data and the proposed model in order to perform OTF equation discovery.
+  The library relies on automatic differentiation of the model to compute the sensitivities and can make use of any gradient-based optimization procedure, such as ADAM.
+  Digital twin experiments have shown promising results in systems such as the Lorenz '96 system and the Kuramoto--Sivashinksy equation, and we have developed a preliminary implementation for asynchronous data assimilation and are applying it to tasks such as subgrid-scale modeling of fluid flow.
+
+  \textbf{Copilot-generated from my stream-of-consciousness.}
+
+  This work presents an ``on-the-fly'' (OTF) method for equation discovery that combines gradient-based parameter optimization with data assimilation techniques to identify models of fluid flow systems.
+  The method leverages nudging to continuously correct simulated states toward observed data while simultaneously optimizing model parameters through automatic differentiation of the sensitivity between simulated and observed systems.
+  
+  The approach addresses two scenarios: parameter recovery, where the correct model form is known but coefficients need determination, and model discovery, where candidate terms with unknown parameters are optimized from a proposed library.
+  We implement the method using JAX for automatic differentiation, enabling straightforward application to new dynamical systems by requiring only the model structure specification.
+  
+  We have developed a comprehensive Python library supporting both digital twin experiments and asynchronous data assimilation, where real-time observations can guide model optimization during simulation.
+  The methodology demonstrates how traditional nudging data assimilation can be enhanced with parameter optimization to simultaneously improve state estimation and model fidelity.
+  Applications to fluid flow systems show the potential for discovering governing equations from observational data while maintaining computational efficiency through gradient-based optimization.
+
+  \textbf{Stream-of-consciousness.}
+
+  The ``on-the-fly'' (OTF) method of equation discovery is a gradient-based method for optimizing nonlinear parameters governing a simulated system to better approximate an observed system, in conjunction with ``nudging'' or similar methods.
+  It defines a sensitivity (error) of the difference between the simulated system and the observed system, and then asymptotically approximates the derivative of the sensitivity with respect to each parameter to allow gradient-based optimization of the parameters to minimize error.
+  Ideally one has a correct form of the model and is only missing the values of the coefficients, and this ``optimization'' amounts to root-finding.
+  One might call this parameter recovery.
+  However, if one does not have a correct model form, one may instead propose a library of terms with unknown coefficients (or nonlinear parameters, such as exponents and trigonometric frequencies), and let the algorithm optimize the parameters.
+
+  I have developed a library of Python code that allows input of a model to be simulated and the parameters to be optimized.
+  Most of the work has been done with digital twin experiments, although I have developed a preliminary implementation for asynchronous simulation, i.e., data may be collected and used to nudge and optimize the simulated system, rather than generating the ``data'' during the simulation.
+  Because the optimization relies on a simple derivative, I use autodifferentiation (with the Python package jax) to enable straightforward implementation of new systems, requiring only the simulated model structure, and the code library does the rest.
+
+  ``Nudging'' is a straightforward data assimilation method in which a simulated system is simply ``nudged'' toward observed data.
+  To be effective, an accurate model is required, and various methods exist for identifying such a model.
+\end{abstract}
+
+\end{document}
