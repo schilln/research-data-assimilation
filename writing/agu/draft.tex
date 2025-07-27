@@ -12,10 +12,10 @@
 
 \begin{abstract}
   The ``on-the-fly'' (OTF) method is a gradient-based approach to equation discovery.
-  Given observational data, a data assimilation technique such as nudging, and an error metric, it computes an asymptotic approximation of a simulated system's error sensitivity with respect to unknown parameters and utilizes any gradient-based optimization algorithm to perform parameter updates.
+  Given limited observational data, a data assimilation technique such as nudging, and an error metric, OTF computes an asymptotic approximation of a simulated system's error sensitivity with respect to unknown parameters and utilizes any gradient-based optimization algorithm to perform parameter updates.
   These parameter updates may be done on- or offline, and the model may be of a precisely specified form or simply a library of possible terms with potentially nonlinear parameters.
 
-  We have developed a libary of Python code that requires only observational data and the proposed model in order to perform OTF equation discovery.
+  We have developed a Python library that requires only observational data and the proposed model in order to perform equation discovery.
   The library relies on automatic differentiation of the model to compute the sensitivities and can make use of any gradient-based optimization procedure, such as ADAM.
   Digital twin experiments have shown promising results in systems such as the Lorenz '96 system and the Kuramoto--Sivashinksy equation, and we have developed a preliminary implementation for asynchronous data assimilation and are applying it to tasks such as subgrid-scale modeling of fluid flow.
 \end{abstract}
