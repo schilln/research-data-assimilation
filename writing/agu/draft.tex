@@ -20,4 +20,15 @@
   Digital twin experiments have shown promising results in systems such as the Lorenz '96 system and the Kuramoto--Sivashinksy equation, and we have developed a preliminary implementation for asynchronous data assimilation and are applying it to tasks such as subgrid-scale modeling of fluid flow.
 \end{abstract}
 
+\begin{section}{Plain language summary}
+  Data assimilation techniques combine mathematical modeling with observed data to better estimate the state or properties of a system of interest, such as weather or fluid flow.
+  The ``on-the-fly'' (OTF) method is one approach to determining the equations that govern such a system.
+  A researcher first proposes their best guess of the governing equations and then numerically simulates their system.
+  OTF compares the simulated system with the observed data and then iteratively updates the parameters of the researcher's proposed model to better match the observed data.
+  These updates may be performed either during or after data collection, and the proposed model may be of a precisely specified form lacking only accurate parameter values, or it may be simply a library of possible terms from which an optimal model must be constructed.
+
+  We have developed a Python library that implements this method, requiring only observational data and the proposed model, and it can use any of a variety of derivative-based procedures for optimizing parameters (which are commonly used in machine learning).
+  Experiments using simulated data show promising results, and we have developed a preliminary implementation for use with data collected separately.
+\end{section}
+
 \end{document}
