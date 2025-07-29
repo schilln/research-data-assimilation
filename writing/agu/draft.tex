@@ -25,7 +25,8 @@
   The ``on-the-fly'' (OTF) method is one approach to determining the equations that govern such a system.
   A researcher first proposes their best guess of the governing equations and then numerically simulates the system using these equations.
   OTF compares the simulated system with the observed data and then iteratively updates the parameters of the researcher's proposed model to better match the observed data.
-  These updates may be performed either during or after data collection, and the proposed model may be of a precisely specified form lacking only accurate parameter values, or it may simply be a library of possible terms from which to select to obtain an optimal model.
+  In contrast with some data assimilation methods, these updates may be performed either synchronously or asynchronously, that is, either during or after data collection.
+  Additionally, the proposed model may be of a precisely specified form lacking only accurate parameter values, or it may simply be a library of possible terms from which to select to obtain an optimal model.
 
   We have developed a Python library that implements this method, requiring only observational data and the proposed model.
   Moreover, to perform the parameter updates, it may utilize any of a variety of derivative-based parameter optimization procedures, such as those commonly used in machine learning.
