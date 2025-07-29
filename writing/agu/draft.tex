@@ -12,12 +12,25 @@
 
 \begin{abstract}
   The ``on-the-fly'' (OTF) method is a gradient-based approach to equation discovery.
-  Given observational data, a data assimilation technique such as nudging, and an error metric, it computes an asymptotic approximation of a simulated system's error sensitivity with respect to unknown parameters and utilizes any gradient-based optimization algorithm to perform parameter updates.
+  Given limited observational data, a data assimilation technique such as nudging, and an error metric, OTF computes an asymptotic approximation of a simulated system's error sensitivity with respect to unknown parameters and utilizes any gradient-based optimization algorithm to perform parameter updates.
   These parameter updates may be done on- or offline, and the model may be of a precisely specified form or simply a library of possible terms with potentially nonlinear parameters.
 
-  We have developed a libary of Python code that requires only observational data and the proposed model in order to perform OTF equation discovery.
+  We have developed a Python library that requires only observational data and the proposed model in order to perform equation discovery.
   The library relies on automatic differentiation of the model to compute the sensitivities and can make use of any gradient-based optimization procedure, such as ADAM.
   Digital twin experiments have shown promising results in systems such as the Lorenz '96 system and the Kuramoto--Sivashinksy equation, and we have developed a preliminary implementation for asynchronous data assimilation and are applying it to tasks such as subgrid-scale modeling of fluid flow.
 \end{abstract}
+
+\begin{section}{Plain language summary}
+  Data assimilation techniques combine mathematical modeling with observed data to better estimate the state or properties of a system of interest, such as weather or fluid flow.
+  The ``on-the-fly'' (OTF) method is one approach to determining the equations that govern such a system.
+  A researcher first proposes their best guess of the governing equations and then numerically simulates the system using these equations.
+  OTF compares the simulated system with the observed data and then iteratively updates the parameters of the researcher's proposed model to better match the observed data.
+  In contrast with some data assimilation methods, these updates may be performed either synchronously or asynchronously, that is, either during or after data collection.
+  Additionally, the proposed model may be of a precisely specified form lacking only accurate parameter values, or it may simply be a library of possible terms from which to select to obtain an optimal model.
+
+  We have developed a Python library that implements this method, requiring only observational data and the proposed model.
+  Moreover, to perform the parameter updates, it may utilize any of a variety of derivative-based parameter optimization procedures, such as those commonly used in machine learning.
+  Experiments using simulated data show promising results, and we have developed a preliminary implementation that supports assimilation of asynchronously collected data.
+\end{section}
 
 \end{document}
