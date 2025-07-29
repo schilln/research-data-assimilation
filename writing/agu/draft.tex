@@ -24,13 +24,13 @@
   Data assimilation techniques combine mathematical modeling with observed data to better estimate the state or properties of a system of interest, such as weather or fluid flow.
   The ``on-the-fly'' (OTF) method is one approach to determining the equations that govern such a system.
   A researcher first proposes their best guess of the governing equations and then numerically simulates the system using these equations.
-  OTF compares the simulated system with the observed data and then iteratively updates the parameters of the researcher's proposed model to better match the observed data.
-  In contrast with some data assimilation methods, these updates may be performed either synchronously or asynchronously, that is, either during or after data collection.
-  Additionally, the proposed model may be of a precisely specified form lacking only accurate parameter values, or it may simply be a library of possible terms from which to select to obtain an optimal model.
+  OTF compares the simulated system with observed data and then iteratively updates the proposed model's parameters to better match the data.
+  Contrasting with some data assimilation methods, these updates may be performed either synchronously or asynchronously, that is, either during or after data collection.
+  Additionally, the proposed model may be of a precisely specified form lacking only accurate parameter values, or it may simply be a library of possible terms from which to select an optimal model.
 
   We have developed a Python library that implements this method, requiring only observational data and the proposed model.
-  Moreover, to perform the parameter updates, it may utilize any of a variety of derivative-based parameter optimization procedures, such as those commonly used in machine learning.
-  Experiments using simulated data show promising results, and we have developed a preliminary implementation that supports assimilation of asynchronously collected data.
+  Moreover, to perform parameter updates, it may utilize any of a variety of derivative-based optimization procedures, such as those commonly used in machine learning.
+  Experiments using simulated data show promising results, and we have developed a preliminary implementation supporting asynchronously collected data.
 \end{section}
 
 \end{document}
